@@ -1,0 +1,43 @@
+{
+    "name": "hocvt/log-viewer-remote",
+    "description": "Mở rộng opcodesio/log-viewer: auth shared-secret giữa các host và tải file log của host ở xa qua host đang xem.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "illuminate/routing": "^11.0|^12.0|^13.0",
+        "illuminate/console": "^11.0|^12.0|^13.0",
+        "opcodesio/log-viewer": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "HocVT\\LogViewerRemote\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "HocVT\\LogViewerRemote\\LogViewerRemoteServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "keywords": [
+        "laravel",
+        "log-viewer",
+        "logs",
+        "multi-host"
+    ],
+    "authors": [
+        {
+            "name": "vuthaihoc",
+            "email": "vuthaihoc.ttud@gmail.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/vuthaihoc/opcodesio-log-viewer-ext/issues",
+        "source": "https://github.com/vuthaihoc/opcodesio-log-viewer-ext"
+    }
+}
