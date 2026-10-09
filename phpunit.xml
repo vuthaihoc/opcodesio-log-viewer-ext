@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Unit test cho phần PHP thuần của package (bộ đọc log của agent). Không cần Laravel:
+    chạy được bằng phpunit của chính package (`composer install && composer test`) hoặc
+    của app đang dùng package: `vendor/bin/phpunit -c packages/log-viewer-remote/phpunit.xml`.
+    Test cần Laravel (HTTP, lệnh, SqlLogger) nằm ở app.
+-->
+<phpunit bootstrap="tests/bootstrap.php" colors="true" cacheDirectory=".phpunit.cache" failOnWarning="true" failOnRisky="true">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src/Agent/Scan</directory>
+        </include>
+    </source>
+</phpunit>
