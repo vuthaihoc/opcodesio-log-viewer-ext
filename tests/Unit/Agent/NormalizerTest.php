@@ -33,6 +33,7 @@ class NormalizerTest extends TestCase
         $this->assertSame('Nghi ngờ N+<n>: <n> query lặp <n>x cho user <n> (<email>) token <token>', $a);
         // Không đụng số dính sau chữ (tên lớp, version).
         $this->assertSame('Base64 v2 md5 <n>', $n->message($this->entry('Base64 v2 md5 42'), null));
+        $this->assertSame('chương <n> hash <hex>', $n->message($this->entry('chương 1129548723095175169 hash 9f86d081884c7d659a2feaa0c55ad015'), null));
     }
 
     public function test_message_drops_the_start_of_a_multiline_context(): void
@@ -73,7 +74,7 @@ class NormalizerTest extends TestCase
 
     public function test_route_resolver_wins_over_heuristics(): void
     {
-        $n = new Normalizer(routeOf: fn (string $path) => str_starts_with($path, '/learn/video/') ? '/learn/video/{slug}/{id}' : null);
+        $n = new Normalizer(routeOf: fn (string $url) => str_starts_with((string) parse_url($url, PHP_URL_PATH), '/learn/video/') ? '/learn/video/{slug}/{id}' : null);
 
         $this->assertSame('/learn/video/{slug}/{id}', $n->url('https://site.test/learn/video/let-it-go/vjalve7bkba8v'));
         $this->assertSame('/about', $n->url('https://site.test/about'));
@@ -92,6 +93,14 @@ class NormalizerTest extends TestCase
             $n->page($this->record(['req.route' => '/livewire-4b6b8091/update'], referer: 'https://site.test/learn/42')),
         );
         $this->assertSame('/old/{id}', $n->page($this->record([], url: 'https://site.test/old/7')));
+    }
+
+    public function test_mask_secrets_keeps_ids(): void
+    {
+        $this->assertSame(
+            'user 1129548723095175169 <email> token <token> slug let-it-go',
+            Normalizer::maskSecrets('user 1129548723095175169 a.b@c.vn token aB3dE5fG7hJ9kL1mN3pQ5rS7tU9 slug let-it-go'),
+        );
     }
 
     public function test_keys_are_cut_and_valid_utf8(): void

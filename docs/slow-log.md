@@ -26,8 +26,8 @@ php artisan vendor:publish --tag=slow-log-config
 'channel' => env('SLOW_LOG_CHANNEL', 'daily'),
 ```
 
-`mergeConfigFrom` chỉ gộp **cấp một**: file của app không cần chép đủ mọi key, nhưng nếu đã
-khai `trace` thì phải khai đủ nhóm `trace` (thiếu key nào thì logger lấy mặc định trong code).
+File của app chỉ cần ghi key mình đổi, kể cả trong nhóm `trace` / `dedicated`: provider gộp
+sâu thêm một cấp cho hai nhóm đó (Laravel `mergeConfigFrom` chỉ gộp cấp một).
 
 Listener chỉ gắn ở các môi trường trong `environments` (mặc định `local`, `production`).
 Không cần đăng ký provider: `LogViewerRemoteServiceProvider` tự register
@@ -52,8 +52,8 @@ theo từng channel được.
 ],
 ```
 
-Key thiếu trong nhóm lấy mặc định trong code. `channel` vẫn nhận tên một channel bất kỳ app đã
-khai; null = kênh mặc định.
+Key thiếu trong nhóm lấy của package. `channel` vẫn nhận tên một channel bất kỳ app đã khai;
+null = kênh mặc định.
 
 ### 3. Bật tắt từng phần
 

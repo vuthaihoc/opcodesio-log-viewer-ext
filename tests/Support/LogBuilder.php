@@ -60,6 +60,23 @@ final class LogBuilder
         self::$files = [];
     }
 
+    public static function removeDir(string $dir): void
+    {
+        if (is_link($dir) || is_file($dir)) {
+            @unlink($dir);
+
+            return;
+        }
+
+        foreach (scandir($dir) ?: [] as $item) {
+            if ($item !== '.' && $item !== '..') {
+                self::removeDir($dir.'/'.$item);
+            }
+        }
+
+        @rmdir($dir);
+    }
+
     /** @param array<string, mixed> $value */
     private static function json(array $value): string
     {

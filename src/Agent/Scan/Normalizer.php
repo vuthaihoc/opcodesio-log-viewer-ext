@@ -18,7 +18,8 @@ final class Normalizer
 
     private const UUID = '/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i';
 
-    private const HEX = '/\b[0-9a-f]{16,}\b/i';
+    /** Hash / id hex (có ít nhất một chữ a–f); chuỗi toàn số dài là id số, để NUMBER lo. */
+    private const HEX = '/\b(?=[0-9]*[a-f])[0-9a-f]{16,}\b/i';
 
     private const ALNUM_RUN = '/[A-Za-z0-9]{24,}/';
 
@@ -32,7 +33,7 @@ final class Normalizer
     private readonly ?\Closure $routeOf;
 
     /**
-     * `$routeOf` quy một path về URI template của route (`/learn/video/{slug}/{id}`), null nếu
+     * `$routeOf` quy một URL về URI template của route (`/learn/video/{slug}/{id}`), null nếu
      * không khớp route nào. Lõi không biết Laravel nên lớp HTTP cắm router vào; không có thì
      * chỉ còn luật thay số / token và `urlGroups`. Đây là cách gộp được log CŨ (chưa có
      * `req.route`) và referer của request Livewire.
@@ -89,7 +90,7 @@ final class Normalizer
         $path = parse_url($url, PHP_URL_PATH);
         $path = is_string($path) && $path !== '' ? $path : '/';
 
-        if ($this->routeOf !== null && ($route = ($this->routeOf)($path)) !== null) {
+        if ($this->routeOf !== null && ($route = ($this->routeOf)($url)) !== null) {
             return $this->cut($route);
         }
 
@@ -142,6 +143,21 @@ final class Normalizer
         return preg_match(self::LIVEWIRE_ROUTE, $path) === 1 && $record->referer !== null
             ? 'livewire ← '.$this->url($record->referer)
             : $path;
+    }
+
+    /**
+     * Chỉ che email và chuỗi trông như token, giữ nguyên số / id — dùng cho chữ của entry trả
+     * thẳng cho agent (cần id để lần theo, không cần email hay token).
+     */
+    public static function maskSecrets(string $text): string
+    {
+        $text = preg_replace(self::EMAIL, '<email>', $text) ?? $text;
+
+        return preg_replace_callback(
+            self::ALNUM_RUN,
+            static fn (array $m): string => LoggableUrl::looksLikeToken($m[0]) ? '<token>' : $m[0],
+            $text,
+        ) ?? $text;
     }
 
     /** Thay số, id, email, token… trong một đoạn chữ tự do. */

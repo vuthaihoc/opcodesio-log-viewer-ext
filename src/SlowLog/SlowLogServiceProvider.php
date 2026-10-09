@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote\SlowLog;
 
+use HocVT\LogViewerRemote\Support\MergesNestedConfig;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Events\QueryExecuted;
@@ -22,9 +23,11 @@ use Illuminate\Support\ServiceProvider;
  */
 class SlowLogServiceProvider extends ServiceProvider
 {
+    use MergesNestedConfig;
+
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../../config/slow-log.php', 'slow-log');
+        $this->mergeNestedConfigFrom(__DIR__.'/../../config/slow-log.php', 'slow-log', ['trace', 'dedicated']);
 
         $this->app->singleton(SqlLogger::class, fn () => new SqlLogger);
 

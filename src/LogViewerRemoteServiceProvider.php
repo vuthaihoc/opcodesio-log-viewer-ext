@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote;
 
+use HocVT\LogViewerRemote\Console\AgentAggregateCommand;
+use HocVT\LogViewerRemote\Console\AgentEntriesCommand;
+use HocVT\LogViewerRemote\Console\AgentFilesCommand;
 use HocVT\LogViewerRemote\Console\CheckHostsCommand;
 use HocVT\LogViewerRemote\Console\GenerateSecretCommand;
 use HocVT\LogViewerRemote\Http\ForwardRequestToHost;
 use HocVT\LogViewerRemote\SlowLog\SlowLogServiceProvider;
 use HocVT\LogViewerRemote\Support\HostCredentials;
+use HocVT\LogViewerRemote\Support\MergesNestedConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -26,12 +30,15 @@ use Opcodes\LogViewer\Http\Middleware\ForwardRequestToHostMiddleware;
  * 3. Khai hosts bằng env, mặc định api_stateful_domains theo APP_URL.
  *    Host trả ra ngoài (trang chính, /api/hosts) không mang credential — xem HostCredentials.
  * 4. Slow query log (SlowLogServiceProvider, mặc định tắt) — xem docs/slow-log.md.
+ * 5. Endpoint cho agent phân tích log ngay trên host (`api/agent/*`) — xem docs/agent.md.
  */
 class LogViewerRemoteServiceProvider extends ServiceProvider
 {
+    use MergesNestedConfig;
+
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/log-viewer-remote.php', 'log-viewer-remote');
+        $this->mergeNestedConfigFrom(__DIR__.'/../config/log-viewer-remote.php', 'log-viewer-remote', ['timeout', 'agent']);
 
         // Đi kèm luôn để app chỉ cần một provider (kể cả app tắt auto-discovery); bật tắt bằng config.
         $this->app->register(SlowLogServiceProvider::class);
@@ -43,6 +50,7 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
         // Nạp ở register(), KHÔNG ở boot(): package đăng ký route bắt-tất
         // `log-viewer/{view?}` trong boot() nên nuốt mọi route /log-viewer khai sau.
         $this->loadRoutesFrom(__DIR__.'/../routes/routes.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/agent.php');
     }
 
     public function boot(): void
@@ -52,7 +60,13 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
         ], 'log-viewer-remote-config');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([CheckHostsCommand::class, GenerateSecretCommand::class]);
+            $this->commands([
+                CheckHostsCommand::class,
+                GenerateSecretCommand::class,
+                AgentAggregateCommand::class,
+                AgentEntriesCommand::class,
+                AgentFilesCommand::class,
+            ]);
         }
 
         $this->mergeHostsFromEnv();

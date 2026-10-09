@@ -26,7 +26,7 @@ return [
 
     // Channel riêng do package khai (driver daily) nếu app chưa có channel cùng tên.
     // File riêng thì đọc nhanh, và cấp quyền cho agent theo channel được.
-    // Key nào thiếu thì lấy mặc định trong code (name slow-log, logs/slow-log.log, 14 ngày).
+    // App chỉ cần ghi key mình đổi trong nhóm này (provider gộp sâu một cấp).
     'dedicated' => [
         'name' => 'slow-log',
         'path' => storage_path('logs/slow-log.log'),

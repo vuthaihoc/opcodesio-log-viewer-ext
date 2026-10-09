@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote\Console;
 
+use HocVT\LogViewerRemote\Agent\AgentConfig;
+use HocVT\LogViewerRemote\Agent\AgentException;
+use HocVT\LogViewerRemote\Agent\Client\RemoteAgentClient;
+use HocVT\LogViewerRemote\LogViewerRemote;
 use HocVT\LogViewerRemote\Support\RemoteHttp;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
@@ -13,6 +17,9 @@ use Opcodes\LogViewer\Host;
 /**
  * Gọi `/api/hosts` của từng host ở xa bằng shared secret. Nhìn một lần biết host nào
  * lệch token, host nào chưa cài package, host nào bị chặn hoặc timeout.
+ *
+ * Cột Agent gọi `/api/agent/ping` bằng agent token (thiếu thì shared secret): phiên bản
+ * package trên host xa, và token nào được nhận.
  */
 class CheckHostsCommand extends Command
 {
@@ -38,14 +45,18 @@ class CheckHostsCommand extends Command
 
         $rows = $hosts->map(fn (Host $host) => $this->probe($host))->values()->all();
 
-        $this->table(['Host', 'Tên', 'URL', 'Kết quả', 'ms'], $rows);
+        if (AgentConfig::token() === '') {
+            $this->warn('Máy này chưa có LOG_VIEWER_AGENT_TOKEN — cột Agent thử bằng shared secret.');
+        }
+
+        $this->table(['Host', 'Tên', 'URL', 'Kết quả', 'ms', 'Agent'], $rows);
 
         $failed = collect($rows)->contains(fn (array $row) => ! str_starts_with($row[3], 'OK'));
 
         return $failed ? self::FAILURE : self::SUCCESS;
     }
 
-    /** @return array{0: string, 1: string, 2: string, 3: string, 4: string} */
+    /** @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string} */
     private function probe(Host $host): array
     {
         $started = microtime(true);
@@ -70,6 +81,30 @@ class CheckHostsCommand extends Command
             (string) $host->host,
             $result,
             (string) (int) round((microtime(true) - $started) * 1000),
+            $this->probeAgent($host),
         ];
+    }
+
+    private function probeAgent(Host $host): string
+    {
+        try {
+            $ping = (new RemoteAgentClient($host))->ping();
+        } catch (AgentException $e) {
+            return match ($e->status) {
+                501 => 'chưa có (host < 1.2)',
+                403 => '403 — host chưa khai LOG_VIEWER_AGENT_TOKEN, hoặc lệch',
+                default => "lỗi {$e->status}",
+            };
+        }
+
+        // JSON nhưng không phải ping (vd. proxy trả trang lỗi dạng JSON) — coi như chưa có.
+        if (($ping['ok'] ?? false) !== true) {
+            return 'chưa có (host < 1.2)';
+        }
+
+        $version = (string) ($ping['version'] ?? '?');
+        $note = version_compare($version, LogViewerRemote::VERSION, '<') ? ' (cũ hơn máy này)' : '';
+
+        return 'v'.$version.' · '.($ping['auth'] ?? '?').' · '.implode(',', (array) ($ping['channels'] ?? [])).$note;
     }
 }
