@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.0 — chưa phát hành
+## v1.2.0 — 2026-10-09
 
 **Agent phân tích log từ xa** — tính ngay trên host có file, không tải file về. Xem `docs/agent.md`.
 
