@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote;
 
+use HocVT\LogViewerRemote\Console\CheckHostsCommand;
+use HocVT\LogViewerRemote\Console\GenerateSecretCommand;
+use HocVT\LogViewerRemote\Http\ForwardRequestToHost;
+use HocVT\LogViewerRemote\SlowLog\SlowLogServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Opcodes\LogViewer\Facades\LogViewer;
 use Opcodes\LogViewer\Http\Middleware\ForwardRequestToHostMiddleware;
-use HocVT\LogViewerRemote\Console\CheckHostsCommand;
-use HocVT\LogViewerRemote\Console\GenerateSecretCommand;
-use HocVT\LogViewerRemote\Http\ForwardRequestToHost;
 
 /**
  * Mở rộng opcodesio/log-viewer (xem README.md):
@@ -20,12 +21,16 @@ use HocVT\LogViewerRemote\Http\ForwardRequestToHost;
  *    dùng thật thì hỏi Gate `viewLogViewer` — project định nghĩa, mặc định chỉ mở ở local.
  * 2. Tải file log của host ở xa qua host đang xem.
  * 3. Khai hosts bằng env, mặc định api_stateful_domains theo APP_URL.
+ * 4. Slow query log (SlowLogServiceProvider, mặc định tắt) — xem docs/slow-log.md.
  */
 class LogViewerRemoteServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/log-viewer-remote.php', 'log-viewer-remote');
+
+        // Đi kèm luôn để app chỉ cần một provider (kể cả app tắt auto-discovery); bật tắt bằng config.
+        $this->app->register(SlowLogServiceProvider::class);
 
         // Vendor gắn cứng middleware trong routes của package, chỉ thay được qua
         // container (Pipeline resolve middleware bằng make()).

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0 — 2026-10-09
+
+- **Slow query log** (`HocVT\LogViewerRemote\SlowLog`, config `slow-log`). Log ngay query chậm hơn ngưỡng; tổng kết mỗi request / job / command khi quá nhiều query, tổng thời gian quá lớn hoặc một query lặp nhiều lần (nghi N+1). **Mặc định tắt** — bật bằng `SLOW_LOG_ENABLED=true`. Tài liệu: `docs/slow-log.md`.
+- Giá trị binding mặc định không ghi; `SLOW_LOG_RAW_BINDINGS` chỉ có tác dụng ở `local` và vẫn che hash, token, chuỗi dài, binary, bảng nhạy cảm.
+- Truy vết query chậm quy file compiled về nguồn, bật tắt riêng: Blade (`trace.blade`), Livewire 4 (`trace.livewire`). Bản vá tên nguồn query của Debugbar cho Livewire: `debugbar_livewire` (chỉ local).
+- `HocVT\LogViewerRemote\Support\LoggableUrl`: URL an toàn để ghi log — che tham số route / query có tên nhạy cảm và đoạn path trông như token.
+- Yêu cầu PHP 8.2+ (Laravel 11 vốn đã cần), thêm `illuminate/database`.
+
 ## v1.0.0 — 2026-09-10
 
 Bản phát hành đầu tiên. Mở rộng `opcodesio/log-viewer` cho mô hình một Log Viewer xem log của nhiều host.

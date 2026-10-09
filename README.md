@@ -10,6 +10,9 @@ Mở rộng [opcodesio/log-viewer](https://github.com/opcodesio/log-viewer) cho 
    trình duyệt không có session cũng 403. Package viết lại `download_url` về origin
    hiện tại rồi tải hộ server-to-server, stream về client.
 3. **Bớt cấu hình tay.** Hosts khai bằng env, `api_stateful_domains` mặc định theo `APP_URL`.
+4. **Slow query log.** Log query chậm và cảnh báo request/job có quá nhiều query (N+1),
+   che sạch bí mật trong SQL lẫn URL, truy vết về đúng file Blade / component Livewire.
+   Mặc định tắt — xem [Slow query log](#slow-query-log).
 
 ## Cài
 
@@ -112,6 +115,19 @@ Toàn bộ route đi theo prefix mới, kể cả hai route của package này, 
 Host cần tên đẹp, basic auth hay header riêng thì khai trong `config/log-viewer.php`
 như bình thường; package chỉ điền những id chưa có.
 
+## Slow query log
+
+```
+SLOW_LOG_ENABLED=true
+```
+
+Không cần đăng ký thêm provider. Phần truy vết Blade, Livewire và bản vá Debugbar có cờ bật
+tắt riêng (`trace.blade`, `trace.livewire`, `debugbar_livewire`); app không có Livewire hay
+Debugbar thì các phần đó tự thành no-op. Publish config:
+`php artisan vendor:publish --tag=slow-log-config`.
+
+Tài liệu đầy đủ (tích hợp, ngưỡng, cách che dữ liệu, đọc log): [docs/slow-log.md](docs/slow-log.md).
+
 ## Những chỗ dễ làm hỏng khi sửa
 
 - **Route nạp ở `register()`, không ở `boot()`.** Package gốc đăng ký route bắt-tất
@@ -155,4 +171,4 @@ muốn, publish `config/log-viewer.php` rồi thu hẹp `include_files`.
 ## Test
 
 Chưa có test riêng trong package (cần orchestra/testbench). Test tích hợp nằm ở project
-dùng package: `tests/Feature/LogViewer/`.
+dùng package: `tests/Feature/LogViewer/`, `tests/Feature/SqlLog/`, `tests/Unit/LoggableUrlTest.php`.
