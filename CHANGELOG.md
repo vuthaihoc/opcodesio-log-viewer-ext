@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.0 — chưa phát hành
+
+- **Một file config `log-viewer-ext`** (`config/log-viewer-ext.php`, publish tag `log-viewer-ext-config`) thay cho `log-viewer-remote.php` + `slow-log.php`: auth / host xa ở gốc, nhóm `agent`, nhóm `slow_log`. Env giữ nguyên tên.
+- Gộp **đệ quy** với config của app (thay cho gộp sâu một cấp): app chỉ ghi key mình đổi, kể cả trong nhóm lồng nhau; danh sách thì thay hẳn.
+- Tương thích ngược: app còn hai file cũ thì vẫn được đọc, xếp dưới file mới; `log-viewer-remote:check` nhắc chuyển. Tag publish cũ (`log-viewer-remote-config`, `slow-log-config`) giờ publish file mới.
+- Mặc định mới: `SLOW_LOG_CHANNEL=slow-log` (channel riêng), `LOG_VIEWER_AGENT_CHANNELS=slow-log`, `SLOW_LOG_TRACE_LIVEWIRE=false`, `SLOW_LOG_DEBUGBAR_LIVEWIRE=false` (hai phần dựa vào nội bộ Livewire 4 / Debugbar — app Livewire bật lên).
+
 ## v1.2.0 — 2026-10-09
 
 **Agent phân tích log từ xa** — tính ngay trên host có file, không tải file về. Xem `docs/agent.md`.

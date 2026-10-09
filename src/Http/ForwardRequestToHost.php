@@ -66,7 +66,7 @@ class ForwardRequestToHost extends ForwardRequestToHostMiddleware
         $actionPath = Str::replaceFirst((string) config('log-viewer.route_path'), '', $request->path());
         $url = $host->host.$actionPath.($query !== [] ? '?'.http_build_query($query) : '');
 
-        $remote = RemoteHttp::client($host, (int) config('log-viewer-remote.timeout.forward', 30), [
+        $remote = RemoteHttp::client($host, (int) config('log-viewer-ext.timeout.forward', 30), [
             'X-Forwarded-Host' => $request->getHost(),
             'X-Forwarded-Port' => (string) $request->getPort(),
             'X-Forwarded-Proto' => $request->getScheme(),

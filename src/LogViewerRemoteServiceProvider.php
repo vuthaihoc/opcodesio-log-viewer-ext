@@ -12,7 +12,7 @@ use HocVT\LogViewerRemote\Console\GenerateSecretCommand;
 use HocVT\LogViewerRemote\Http\ForwardRequestToHost;
 use HocVT\LogViewerRemote\SlowLog\SlowLogServiceProvider;
 use HocVT\LogViewerRemote\Support\HostCredentials;
-use HocVT\LogViewerRemote\Support\MergesNestedConfig;
+use HocVT\LogViewerRemote\Support\MergesConfigRecursively;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -34,11 +34,19 @@ use Opcodes\LogViewer\Http\Middleware\ForwardRequestToHostMiddleware;
  */
 class LogViewerRemoteServiceProvider extends ServiceProvider
 {
-    use MergesNestedConfig;
+    use MergesConfigRecursively;
+
+    /** Key config của package — một file cho auth / host xa, agent, slow log. */
+    public const CONFIG = 'log-viewer-ext';
 
     public function register(): void
     {
-        $this->mergeNestedConfigFrom(__DIR__.'/../config/log-viewer-remote.php', 'log-viewer-remote', ['timeout', 'agent']);
+        // Bản ≤ 1.2 có hai file config (log-viewer-remote.php, slow-log.php): app còn giữ thì
+        // vẫn đọc, xếp dưới file mới. Phải gộp TRƯỚC khi register SlowLogServiceProvider.
+        $this->mergeConfigRecursivelyFrom(__DIR__.'/../config/log-viewer-ext.php', self::CONFIG, [
+            'log-viewer-remote' => '',
+            'slow-log' => 'slow_log',
+        ]);
 
         // Đi kèm luôn để app chỉ cần một provider (kể cả app tắt auto-discovery); bật tắt bằng config.
         $this->app->register(SlowLogServiceProvider::class);
@@ -55,9 +63,10 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // `log-viewer-remote-config` / `slow-log-config` là tên tag của bản ≤ 1.2, giữ cho script cũ.
         $this->publishes([
-            __DIR__.'/../config/log-viewer-remote.php' => config_path('log-viewer-remote.php'),
-        ], 'log-viewer-remote-config');
+            __DIR__.'/../config/log-viewer-ext.php' => config_path('log-viewer-ext.php'),
+        ], ['log-viewer-ext-config', 'log-viewer-remote-config', 'slow-log-config']);
 
         // Skill cho agent AI (Claude Code): cách dùng lệnh agent + cách đọc số cho đúng.
         $this->publishes([
@@ -107,14 +116,14 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
      */
     private function mergeHostsFromEnv(): void
     {
-        $raw = trim((string) config('log-viewer-remote.hosts'));
+        $raw = trim((string) config('log-viewer-ext.hosts'));
 
         if ($raw === '') {
             return;
         }
 
         $hosts = config('log-viewer.hosts', []);
-        $secret = (string) config('log-viewer-remote.shared_secret');
+        $secret = (string) config('log-viewer-ext.shared_secret');
 
         foreach (explode(',', $raw) as $entry) {
             [$id, $url] = array_pad(explode('=', trim($entry), 2), 2, '');
@@ -200,7 +209,7 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
 
     private function bearerMatchesSharedSecret(Request $request): bool
     {
-        $secret = (string) config('log-viewer-remote.shared_secret');
+        $secret = (string) config('log-viewer-ext.shared_secret');
         $bearer = (string) $request->bearerToken();
 
         return $secret !== '' && $bearer !== '' && hash_equals($secret, $bearer);

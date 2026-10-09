@@ -47,7 +47,7 @@ final class AgentForwarder
             return null;
         }
 
-        $timeout = (int) config('log-viewer-remote.timeout.agent', 40);
+        $timeout = (int) config('log-viewer-ext.timeout.agent', 40);
         @set_time_limit($timeout + 10);
 
         $client = RemoteHttp::client($host, $timeout, withAuth: $auth !== 'agent')->acceptJson();

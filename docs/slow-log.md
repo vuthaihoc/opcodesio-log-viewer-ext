@@ -13,36 +13,41 @@ Package **mặc định tắt** slow log. Bật bằng env:
 SLOW_LOG_ENABLED=true
 ```
 
-hoặc publish config rồi sửa mặc định ngay trong code (nên làm khi muốn bật ở mọi host mà
-không phải sửa `.env` từng máy):
+hoặc ghi mặc định ngay trong config của app (nên làm khi muốn bật ở mọi host mà không phải sửa
+`.env` từng máy). Config của cả package là **một file** `log-viewer-ext`, slow log nằm ở nhóm
+`slow_log`:
 
 ```bash
-php artisan vendor:publish --tag=slow-log-config
+php artisan vendor:publish --tag=log-viewer-ext-config
 ```
 
 ```php
-// config/slow-log.php
-'enabled' => env('SLOW_LOG_ENABLED', true),
-'channel' => env('SLOW_LOG_CHANNEL', 'daily'),
+// config/log-viewer-ext.php của app — chỉ cần ghi key mình đổi
+return [
+    'slow_log' => [
+        'enabled' => env('SLOW_LOG_ENABLED', true),
+    ],
+];
 ```
 
-File của app chỉ cần ghi key mình đổi, kể cả trong nhóm `trace` / `dedicated`: provider gộp
-sâu thêm một cấp cho hai nhóm đó (Laravel `mergeConfigFrom` chỉ gộp cấp một).
+Provider gộp **đệ quy** file của app với file của package: key không khai lấy của package, kể
+cả trong nhóm lồng nhau (`trace`, `dedicated`). Danh sách (`environments`, `skip_vendors`) thì
+app thay hẳn. Bản ≤ 1.2 dùng file riêng `config/slow-log.php`: app còn giữ thì vẫn được đọc
+(xếp dưới file mới), và lệnh `log-viewer-remote:check` nhắc chuyển.
 
 Listener chỉ gắn ở các môi trường trong `environments` (mặc định `local`, `production`).
 Không cần đăng ký provider: `LogViewerRemoteServiceProvider` tự register
 `SlowLogServiceProvider`.
 
-### 2. Ghi ra channel riêng (nên làm)
+### 2. Channel riêng (mặc định)
 
-```
-SLOW_LOG_CHANNEL=slow-log
-```
+Mặc định slow log ghi vào channel `slow-log` (`SLOW_LOG_CHANNEL`). Package tự khai channel này
+(driver daily → `storage/logs/slow-log-YYYY-MM-DD.log`, 14 ngày) nếu app chưa có channel cùng
+tên; app đã khai thì giữ nguyên của app.
 
-Package tự khai channel `slow-log` (driver daily → `storage/logs/slow-log-YYYY-MM-DD.log`,
-14 ngày) nếu app chưa có channel cùng tên; app đã khai thì giữ nguyên của app. Tách file riêng
-thì đọc nhanh hơn hẳn (log chung có thể vài trăm MB/ngày), và về sau cấp quyền đọc cho công cụ
-theo từng channel được.
+Tách file riêng thì đọc nhanh hơn hẳn (log chung có thể vài trăm MB/ngày), và agent token
+mặc định chỉ được đọc đúng channel này (`LOG_VIEWER_AGENT_CHANNELS=slow-log`, xem
+[agent.md](agent.md)).
 
 Đổi tên, đường dẫn, số ngày, quyền file ở nhóm `dedicated`:
 
@@ -53,7 +58,7 @@ theo từng channel được.
 ```
 
 Key thiếu trong nhóm lấy của package. `channel` vẫn nhận tên một channel bất kỳ app đã khai;
-null = kênh mặc định.
+chuỗi rỗng = kênh mặc định của app.
 
 ### 3. Bật tắt từng phần
 
@@ -62,12 +67,14 @@ null = kênh mặc định.
 | Toàn bộ slow log | `enabled` | `SLOW_LOG_ENABLED` | `false` | — |
 | Stack trace của query chậm | `trace.enabled` | `SLOW_LOG_TRACE` | `true` | Log quá dài |
 | Quy Blade compiled về `.blade.php` | `trace.blade` | `SLOW_LOG_TRACE_BLADE` | `true` | Hiếm khi cần — muốn thấy chính file compiled |
-| Quy cache Livewire 4 về `⚡component` | `trace.livewire` | `SLOW_LOG_TRACE_LIVEWIRE` | `true` | Livewire đổi cách đặt tên cache (xem [Livewire](#livewire)) |
-| Vá Debugbar cho Livewire | `debugbar_livewire` | `SLOW_LOG_DEBUGBAR_LIVEWIRE` | `true` | Debugbar đổi nội bộ (xem [Debugbar](#vá-debugbar-cho-livewire)) |
+| Quy cache Livewire 4 về `⚡component` | `trace.livewire` | `SLOW_LOG_TRACE_LIVEWIRE` | `false` | Livewire đổi cách đặt tên cache (xem [Livewire](#livewire)) |
+| Vá Debugbar cho Livewire | `debugbar_livewire` | `SLOW_LOG_DEBUGBAR_LIVEWIRE` | `false` | Debugbar đổi nội bộ (xem [Debugbar](#vá-debugbar-cho-livewire)) |
 
-App **không có** Livewire hay Debugbar thì không phải tắt gì: tầng Livewire thấy
-`livewire.component_locations` rỗng nên tự thành no-op, bản vá Debugbar không thấy binding
-`debugbar` nên không gắn listener. Cờ chỉ để tắt khi các phần đó **có mặt** mà gây phiền.
+Hai phần Livewire **mặc định tắt**, vì chúng dựa vào nội bộ của Livewire 4 và Debugbar. App
+Livewire 4 bật bằng `SLOW_LOG_TRACE_LIVEWIRE=true` (trace chỉ thẳng vào `⚡component`), và
+`SLOW_LOG_DEBUGBAR_LIVEWIRE=true` ở máy dev có Debugbar. Bật trên app không có Livewire /
+Debugbar cũng vô hại: tầng Livewire thấy `livewire.component_locations` rỗng nên tự thành
+no-op, bản vá Debugbar không thấy binding `debugbar` nên không gắn listener.
 
 Gói vendor bị lọc khỏi trace khai ở `trace.skip_vendors` (mặc định `laravel/framework`,
 `livewire/livewire`, `barryvdh/laravel-debugbar`). Frame trong chính package luôn bị lọc.
@@ -271,7 +278,7 @@ Chỉ chạy khi `APP_ENV=local` và có binding `debugbar`; độc lập với 
 
 ## Config
 
-Đầy đủ ở `config/slow-log.php` của package — mỗi key có chú thích tại chỗ.
+Nhóm `slow_log` trong `config/log-viewer-ext.php` của package — mỗi key có chú thích tại chỗ.
 
 ## Test
 

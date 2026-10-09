@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace HocVT\LogViewerRemote\Agent;
 
 /**
- * Đọc nhóm `log-viewer-remote.agent`. Provider đã gộp sâu nhóm này với config của app
- * (MergesNestedConfig); mặc định ở đây chỉ là lưới cuối khi app set tay cả nhóm lúc chạy.
+ * Đọc nhóm `log-viewer-ext.agent`. Provider đã gộp sâu nhóm này với config của app
+ * (MergesConfigRecursively); mặc định ở đây chỉ là lưới cuối khi app set tay cả nhóm lúc chạy.
  */
 final class AgentConfig
 {
     private const DEFAULTS = [
         'token' => null,
-        'channels' => null,
+        'channels' => 'slow-log',
         'max_seconds' => 20.0,
         'max_bytes' => 0,
         'slots' => 2,
@@ -30,7 +30,7 @@ final class AgentConfig
 
     public static function get(string $key): mixed
     {
-        $value = ((array) config('log-viewer-remote.agent', []))[$key] ?? null;
+        $value = ((array) config('log-viewer-ext.agent', []))[$key] ?? null;
 
         return $value ?? self::DEFAULTS[$key];
     }
@@ -46,7 +46,7 @@ final class AgentConfig
     }
 
     /**
-     * Channel được đọc; bỏ trống = channel slow log đang ghi (`slow-log.channel`, null thì
+     * Channel được đọc; bỏ trống = channel slow log đang ghi (`log-viewer-ext.slow_log.channel`, null thì
      * kênh mặc định của app).
      *
      * @return list<string>
@@ -62,7 +62,7 @@ final class AgentConfig
 
     public static function slowLogChannel(): string
     {
-        return (string) (config('slow-log.channel') ?: config('logging.default'));
+        return (string) (config('log-viewer-ext.slow_log.channel') ?: config('logging.default'));
     }
 
     /** Múi giờ của timestamp trong file log (Monolog dùng timezone mặc định của PHP = app.timezone). */

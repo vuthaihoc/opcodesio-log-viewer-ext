@@ -52,7 +52,7 @@ class RemoteDownloadController
         // Đọc theo chunk thay vì ->body(): file log production có thể vài trăm MB,
         // nạp hết vào chuỗi PHP là chết memory_limit.
         $response = $this->client($remote)
-            ->timeout((int) config('log-viewer-remote.timeout.download', 300))
+            ->timeout((int) config('log-viewer-ext.timeout.download', 300))
             ->withOptions(['stream' => true])
             ->get($this->signedUrl($remote, $type, $identifier));
 
@@ -105,7 +105,7 @@ class RemoteDownloadController
 
     private function client(Host $host): PendingRequest
     {
-        return RemoteHttp::client($host, (int) config('log-viewer-remote.timeout.request', 15));
+        return RemoteHttp::client($host, (int) config('log-viewer-ext.timeout.request', 15));
     }
 
     private function abortUnlessSuccessful(ClientResponse $response, Host $host): void

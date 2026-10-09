@@ -29,6 +29,12 @@ class CheckHostsCommand extends Command
 
     public function handle(): int
     {
+        foreach (['log-viewer-remote' => 'config/log-viewer-remote.php', 'slow-log' => 'config/slow-log.php'] as $key => $file) {
+            if (config($key) !== null) {
+                $this->warn("App còn file config cũ {$file} — vẫn được đọc nhưng nên chuyển vào config/log-viewer-ext.php (nhóm ".($key === 'slow-log' ? '`slow_log`' : 'gốc').').');
+            }
+        }
+
         $only = $this->argument('host');
         $hosts = LogViewer::getHosts()
             ->filter(fn (Host $host) => $host->isRemote() && ($only === null || $host->identifier === $only));
@@ -39,7 +45,7 @@ class CheckHostsCommand extends Command
             return self::INVALID;
         }
 
-        if ((string) config('log-viewer-remote.shared_secret') === '') {
+        if ((string) config('log-viewer-ext.shared_secret') === '') {
             $this->warn('LOG_VIEWER_SHARED_SECRET đang rỗng — mọi host sẽ trả 403.');
         }
 

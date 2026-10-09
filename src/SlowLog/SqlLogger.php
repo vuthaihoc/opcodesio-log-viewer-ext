@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
  * Bắt buộc phải gọi flush() ở cuối mỗi context, nếu không số liệu sẽ cộng dồn
  * và tích luỹ bộ nhớ trong các process chạy dài (queue:work, schedule:run).
  *
- * Config: `slow-log` (config/slow-log.php của package) — xem docs/slow-log.md.
+ * Config: `log-viewer-ext.slow_log` (config/log-viewer-ext.php của package) — xem docs/slow-log.md.
  *
  * Định dạng dòng log là hợp đồng với bộ đọc của agent (HocVT\LogViewerRemote\Agent):
  * context mang `slow_log` = `query` | `summary` cùng các trường máy đọc, phần chữ chỉ để
@@ -81,7 +81,7 @@ class SqlLogger
 
     public function __construct(array $config = [])
     {
-        $config += (array) config('slow-log', []);
+        $config += (array) config('log-viewer-ext.slow_log', []);
 
         $this->enabled = (bool) ($config['enabled'] ?? false);
         $this->console = app()->runningInConsole();
@@ -113,7 +113,7 @@ class SqlLogger
 
         $this->resolver = new CompiledViewResolver(
             blade: (bool) ($trace['blade'] ?? true),
-            livewire: (bool) ($trace['livewire'] ?? true),
+            livewire: (bool) ($trace['livewire'] ?? false),
         );
     }
 

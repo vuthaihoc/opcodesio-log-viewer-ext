@@ -25,18 +25,18 @@ php artisan log-viewer-remote:aggregate   GET {log-viewer}/api/agent/aggregate
    php artisan log-viewer-remote:secret --agent
    ```
 
-2. Trên host bị đọc, khai các channel mà **agent token** được đọc. Bỏ trống thì chỉ có channel của slow log:
+2. Trên host bị đọc, khai các channel mà **agent token** được đọc. Mặc định chỉ có `slow-log`
+   (channel riêng của slow log):
 
    ```
    LOG_VIEWER_AGENT_CHANNELS=slow-log,daily
    ```
 
-   Hoặc khai trong `config/log-viewer-remote.php` của app, chỉ cần nhóm `agent`. Provider gộp
-   sâu nhóm này nên chỉ phải ghi key mình đổi.
+   Hoặc khai trong `config/log-viewer-ext.php` của app, nhóm `agent`. Provider gộp đệ quy nên
+   chỉ phải ghi key mình đổi.
 
-3. Nên bật slow log ở channel riêng (`SLOW_LOG_CHANNEL=slow-log`, xem
-   [slow-log.md](slow-log.md)). File nhỏ thì quét nhanh, và có thể mở quyền cho slow log mà
-   không phải mở cả log lỗi.
+3. Slow log mặc định đã ghi ra channel riêng `slow-log` (xem [slow-log.md](slow-log.md)). File
+   nhỏ thì quét nhanh, và mở quyền cho slow log mà không phải mở cả log lỗi.
 
 **Trên máy dev**: khai host như khi xem log bằng UI (`LOG_VIEWER_HOSTS` hoặc
 `config/log-viewer.php`), cộng `LOG_VIEWER_AGENT_TOKEN`. Kiểm tra:
@@ -278,12 +278,12 @@ curl -s -H "Authorization: Bearer $LOG_VIEWER_AGENT_TOKEN" \
   'https://m1.example.com/log-viewer/api/agent/aggregate?channel=slow-log&date=2026-10-05&only=pages,sql_waste&top=10'
 ```
 
-## Cấu hình (`log-viewer-remote.agent`)
+## Cấu hình (`log-viewer-ext.agent`)
 
 | Key | Env | Mặc định | Ý nghĩa |
 |---|---|---|---|
 | `token` | `LOG_VIEWER_AGENT_TOKEN` | — | Token chỉ đọc |
-| `channels` | `LOG_VIEWER_AGENT_CHANNELS` | channel của slow log | Channel agent token được đọc (shared secret không bị giới hạn) |
+| `channels` | `LOG_VIEWER_AGENT_CHANNELS` | `slow-log` | Channel agent token được đọc (shared secret không bị giới hạn) |
 | `max_seconds` | `LOG_VIEWER_AGENT_MAX_SECONDS` | 20 | Trần mỗi request |
 | `max_bytes` | — | 0 | Trần byte mỗi request, 0 = chỉ giới hạn thời gian |
 | `slots` | — | 2 | Số lượt quét đồng thời |

@@ -107,7 +107,15 @@ Toàn bộ route đi theo prefix mới, kể cả hai route của package này, 
 
 ## Cấu hình
 
-`php artisan vendor:publish --tag=log-viewer-remote-config` nếu cần đổi timeout. Các key:
+Cả package dùng **một file** `config/log-viewer-ext.php` (key `log-viewer-ext`): auth / host
+xa ở gốc, nhóm `agent`, nhóm `slow_log`. Publish: `php artisan vendor:publish --tag=log-viewer-ext-config`.
+Provider gộp **đệ quy** với file của app: app chỉ ghi key mình đổi, kể cả trong nhóm lồng
+nhau; danh sách thì app thay hẳn.
+
+Bản ≤ 1.2 dùng hai file `config/log-viewer-remote.php` + `config/slow-log.php`: app còn giữ thì
+vẫn được đọc (xếp dưới file mới), `log-viewer-remote:check` nhắc chuyển. Env giữ nguyên tên.
+
+Các key ở gốc:
 
 | Key | Env | Ý nghĩa |
 |---|---|---|
@@ -124,10 +132,10 @@ như bình thường; package chỉ điền những id chưa có.
 SLOW_LOG_ENABLED=true
 ```
 
-Không cần đăng ký thêm provider. Phần truy vết Blade, Livewire và bản vá Debugbar có cờ bật
-tắt riêng (`trace.blade`, `trace.livewire`, `debugbar_livewire`); app không có Livewire hay
-Debugbar thì các phần đó tự thành no-op. Publish config:
-`php artisan vendor:publish --tag=slow-log-config`.
+Không cần đăng ký thêm provider. Mặc định ghi ra channel riêng `slow-log`
+(`storage/logs/slow-log-YYYY-MM-DD.log`). Truy vết về `⚡component` Livewire 4 và bản vá
+Debugbar mặc định tắt — app Livewire bật bằng `SLOW_LOG_TRACE_LIVEWIRE=true`,
+`SLOW_LOG_DEBUGBAR_LIVEWIRE=true`. Config ở nhóm `slow_log` của `log-viewer-ext`.
 
 Tài liệu đầy đủ (tích hợp, ngưỡng, cách che dữ liệu, đọc log): [docs/slow-log.md](docs/slow-log.md).
 
@@ -140,8 +148,8 @@ php artisan log-viewer-remote:aggregate --host=m1 --channel=slow-log --date=2026
 php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@1124892
 ```
 
-Host bị đọc khai channel agent token được đọc (`LOG_VIEWER_AGENT_CHANNELS=slow-log,daily`; bỏ
-trống = chỉ slow log; shared secret không bị giới hạn). Agent token chỉ gọi được `api/agent/*` —
+Host bị đọc khai channel agent token được đọc (`LOG_VIEWER_AGENT_CHANNELS=slow-log,daily`;
+mặc định `slow-log`; shared secret không bị giới hạn). Agent token chỉ gọi được `api/agent/*` —
 không tải / xoá file, không vào UI. `levels` / `messages` đọc mọi log, 4 bảng còn lại chỉ đọc
 slow log; câu hỏi riêng thì tự gửi `--match` / `--group` (regex). Đi vòng qua host đang xem:
 `--via=web --host=m1`. Skill cho Claude Code: `php artisan vendor:publish --tag=log-viewer-remote-skill`.

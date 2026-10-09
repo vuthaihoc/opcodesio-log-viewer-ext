@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Event;
  * ở đây chỉ nghe QueryExecuted SAU Debugbar rồi sửa lại frame vừa được ghi. Bề mặt phụ thuộc gói
  * gọn ở property `queries` và các frame có `name`/`file`.
  *
- * Chỉ chạy ở local, khi Debugbar bật. Tắt bằng `slow-log.debugbar_livewire` (độc lập với
- * `slow-log.enabled`: đây là công cụ dev, không phải phần ghi log).
+ * Chỉ chạy ở local, khi Debugbar bật. Tắt bằng `log-viewer-ext.slow_log.debugbar_livewire` (độc lập
+ * với `slow_log.enabled`: đây là công cụ dev, không phải phần ghi log).
  */
 class DebugbarLivewireSource
 {

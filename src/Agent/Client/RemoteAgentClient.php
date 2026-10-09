@@ -64,7 +64,7 @@ final class RemoteAgentClient implements AgentClient
     private function get(string $action, array $params = []): array
     {
         // Đi vòng thì host trung gian còn phải chờ host đích: thêm thời gian cho chặng đó.
-        $timeout = (int) config('log-viewer-remote.timeout.agent', 40) + ($this->target === null ? 0 : 10);
+        $timeout = (int) config('log-viewer-ext.timeout.agent', 40) + ($this->target === null ? 0 : 10);
         $request = RemoteHttp::client($this->host, $timeout, withAuth: $this->usesSharedSecret())->acceptJson();
 
         if (! $this->usesSharedSecret()) {

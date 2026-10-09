@@ -28,7 +28,7 @@ class LogViewerRemote
      * Phiên bản package, báo cho agent qua `api/agent/ping` (lệnh check dựa vào đó biết host
      * xa đã nâng cấp chưa). Composer không báo đúng khi package được cài bằng symlink / path.
      */
-    public const VERSION = '1.2.0';
+    public const VERSION = '1.3.0';
 
     /** @var (callable(Request): bool)|null */
     private static $authorizer = null;

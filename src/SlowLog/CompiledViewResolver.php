@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 
 /**
  * Quy đường dẫn file đã biên dịch về file nguồn. Hai tầng bật tắt riêng
- * (config `slow-log.trace.blade` / `slow-log.trace.livewire`):
+ * (config `log-viewer-ext.slow_log.trace.blade` / `.livewire`):
  *
  * - Blade: `storage/framework/views/<xxh128>.php` → đọc marker `PATH` Blade ghi ở cuối file.
  * - Livewire 4: hai tầng biên dịch nên stack trace không chỉ thẳng vào file gốc:

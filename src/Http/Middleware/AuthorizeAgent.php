@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class AuthorizeAgent
 {
-    public const ATTRIBUTE = 'log-viewer-remote.agent-auth';
+    public const ATTRIBUTE = 'log-viewer-ext.agent-auth';
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -26,7 +26,7 @@ class AuthorizeAgent
         $auth = match (true) {
             $bearer === '' => null,
             self::matches(AgentConfig::token(), $bearer) => 'agent',
-            self::matches((string) config('log-viewer-remote.shared_secret'), $bearer) => 'shared',
+            self::matches((string) config('log-viewer-ext.shared_secret'), $bearer) => 'shared',
             default => null,
         };
 
