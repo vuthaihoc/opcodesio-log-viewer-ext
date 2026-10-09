@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote\Agent;
 
-/** Một file log agent được đọc: tên tương đối dưới thư mục log, channel, ngày (file daily). */
+/**
+ * Một file log agent được đọc: tên tương đối dưới thư mục log, channel, ngày (file daily).
+ * Channel null = file Log Viewer liệt kê nhưng không thuộc channel nào (chỉ thấy khi không
+ * bị giới hạn channel).
+ */
 final class AgentFile
 {
     public function __construct(
         public readonly string $path,
         public readonly string $name,
-        public readonly string $channel,
+        public readonly ?string $channel,
         public readonly ?string $date,
         public readonly int $size,
         public readonly int $mtime,

@@ -140,9 +140,11 @@ php artisan log-viewer-remote:aggregate --host=m1 --channel=slow-log --date=2026
 php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@1124892
 ```
 
-Host bị đọc khai channel được phép (`LOG_VIEWER_AGENT_CHANNELS=slow-log,daily`; bỏ trống = chỉ
-slow log). Agent token chỉ gọi được `api/agent/*` — không tải / xoá file, không vào UI. Skill
-cho Claude Code: `php artisan vendor:publish --tag=log-viewer-remote-skill`.
+Host bị đọc khai channel agent token được đọc (`LOG_VIEWER_AGENT_CHANNELS=slow-log,daily`; bỏ
+trống = chỉ slow log; shared secret không bị giới hạn). Agent token chỉ gọi được `api/agent/*` —
+không tải / xoá file, không vào UI. `levels` / `messages` đọc mọi log, 4 bảng còn lại chỉ đọc
+slow log; câu hỏi riêng thì tự gửi `--match` / `--group` (regex). Đi vòng qua host đang xem:
+`--via=web --host=m1`. Skill cho Claude Code: `php artisan vendor:publish --tag=log-viewer-remote-skill`.
 
 Tài liệu đầy đủ (bảy thao tác hay làm, cách đọc số, HTTP API, cấu hình): [docs/agent.md](docs/agent.md).
 

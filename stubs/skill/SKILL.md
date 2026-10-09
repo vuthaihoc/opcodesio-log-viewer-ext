@@ -20,6 +20,7 @@ php artisan log-viewer-remote:files --host=<host>       # file + channel + ngày
 ```
 
 - `--host` = identifier trong `config/log-viewer.php` / `LOG_VIEWER_HOSTS`; bỏ trống = máy này.
+- Không gọi thẳng được host đích thì `--via=<host đang xem> --host=<đích>` (host trung gian forward).
 - Cột Agent `chưa có (host < 1.2)` = host chưa nâng cấp package → không dùng được, báo người dùng.
 - Lệnh cảnh báo đang gửi shared secret = máy này thiếu `LOG_VIEWER_AGENT_TOKEN`; vẫn chạy được.
 
@@ -33,7 +34,9 @@ php artisan log-viewer-remote:aggregate --host=<host> --channel=<channel> --date
 - Thời gian: `--date` = cả ngày theo giờ người hỏi; `--from` / `--to` nhận `"2026-10-05 07:00"`
   (giờ người hỏi), ISO có offset, hoặc `"-2 hours"`. Log ghi giờ theo `app.timezone` (thường UTC):
   đối chiếu `window.from/to` trong kết quả, đừng tự cộng trừ múi giờ.
-- `--only` = `levels,messages,pages,sql_waste,commands,slow_queries`.
+- `--only` = `levels,messages,pages,sql_waste,commands,slow_queries` (+ `group`).
+- **`levels`, `messages`, `group` đọc mọi entry; `pages`, `sql_waste`, `commands`, `slow_queries`
+  CHỈ đọc dòng slow log** — chạy trên log lỗi (`daily`, `daily_cli`) thì trống, đó không phải lỗi.
 
 | Câu hỏi | Bảng |
 |---|---|
@@ -42,6 +45,15 @@ php artisan log-viewer-remote:aggregate --host=<host> --channel=<channel> --date
 | N+1, query thừa | `sql_waste` (`waste` = Σ(xN−1), cột `pages` = nơi sinh ra) |
 | Job / lệnh nào tốn DB | `commands` |
 | Query chậm nào hay gặp | `slow_queries` |
+
+Câu hỏi riêng → tự gửi regex:
+
+```bash
+# lọc trước mọi bảng
+… --level=error --match='OOM|timed out' --only=levels,messages
+# gom theo regex: nhóm tên key = khoá, nhóm tên sum = số cộng dồn; --in=text so cả entry (chậm hơn)
+… --in=text --group='App\\Jobs\\(?<key>\w+)' --only=group
+```
 
 Đọc trọn một entry: lấy cột `sample` (`file@offset`):
 
@@ -64,6 +76,6 @@ php artisan log-viewer-remote:entries --host=<host> --channel=daily --date=… -
 ## Luật
 
 - Không in, không chép token / `.env` vào câu trả lời hay file.
-- 403 kèm `allowed_channels` = channel đó không mở cho agent; đừng đổi sang shared secret để vượt.
+- 403 kèm `allowed_channels` = channel đó không mở cho agent token; đừng đổi sang shared secret để vượt.
 - Host trả 429 = đang bận: lệnh tự chờ; đừng chạy song song nhiều lệnh vào cùng host.
 - Chi tiết, HTTP API, cấu hình: `vendor/hocvt/log-viewer-remote/docs/agent.md`.

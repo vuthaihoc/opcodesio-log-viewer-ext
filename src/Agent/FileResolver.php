@@ -8,9 +8,10 @@ use Illuminate\Support\Str;
 use Opcodes\LogViewer\Facades\LogViewer;
 
 /**
- * File agent được đọc = file Log Viewer liệt kê (tôn trọng include / exclude của nó) ∩ file
- * thuộc channel cho phép. Tham số `files` chỉ được chọn trong danh sách này — chặn luôn
- * path traversal, vì không bao giờ mở đường dẫn do client gửi.
+ * File được đọc = file Log Viewer liệt kê (tôn trọng include / exclude của nó). Với agent
+ * token (`restricted`) còn phải thuộc channel cho phép; shared secret và lệnh chạy ngay trên
+ * máy thì đọc được hết như UI Log Viewer. Tham số `files` chỉ được chọn trong danh sách này —
+ * chặn luôn path traversal, vì không bao giờ mở đường dẫn do client gửi.
  *
  * Định danh là tên tương đối dưới thư mục log, không dùng identifier của vendor: cái đó là
  * md5(IP:path), mà IP lấy từ SERVER_ADDR ở web và `hostname -I` ở CLI — agent không tự tính ra.
@@ -20,11 +21,27 @@ final class FileResolver
     /** @var list<AgentFile>|null */
     private ?array $allowed = null;
 
-    public function __construct(private readonly ChannelFiles $channels) {}
+    public function __construct(
+        private readonly ChannelFiles $channels,
+        private readonly bool $restricted = true,
+    ) {}
 
-    public static function fromConfig(): self
+    /**
+     * @param  bool  $restricted  true = agent token: chỉ channel trong `agent.channels`
+     */
+    public static function fromConfig(bool $restricted = true): self
     {
-        return new self(new ChannelFiles((array) config('logging.channels', []), AgentConfig::channels()));
+        $channels = (array) config('logging.channels', []);
+
+        return new self(
+            new ChannelFiles($channels, $restricted ? AgentConfig::channels() : array_map('strval', array_keys($channels))),
+            $restricted,
+        );
+    }
+
+    public function restricted(): bool
+    {
+        return $this->restricted;
     }
 
     /** @return list<string> */
@@ -46,7 +63,7 @@ final class FileResolver
         foreach (LogViewer::getFiles() as $file) {
             $match = $this->channels->match($file->path);
 
-            if ($match === null) {
+            if ($match === null && $this->restricted) {
                 continue;
             }
 
@@ -55,14 +72,14 @@ final class FileResolver
             $files[] = new AgentFile(
                 path: $file->path,
                 name: str_starts_with($file->path, $base) ? Str::after($file->path, $base) : basename($file->path),
-                channel: $match['channel'],
-                date: $match['date'],
+                channel: $match['channel'] ?? null,
+                date: $match['date'] ?? null,
                 size: (int) @filesize($file->path),
                 mtime: (int) @filemtime($file->path),
             );
         }
 
-        usort($files, static fn (AgentFile $a, AgentFile $b): int => [$a->channel, $a->date ?? '', $a->name] <=> [$b->channel, $b->date ?? '', $b->name]);
+        usort($files, static fn (AgentFile $a, AgentFile $b): int => [$a->channel ?? '', $a->date ?? '', $a->name] <=> [$b->channel ?? '', $b->date ?? '', $b->name]);
 
         return $this->allowed = $files;
     }
@@ -82,7 +99,9 @@ final class FileResolver
         $channel = $channel !== null && $channel !== '' ? $channel : AgentConfig::slowLogChannel();
 
         if (! in_array($channel, $this->channels(), true)) {
-            throw new AgentException(403, "Channel `{$channel}` không được phép.", ['allowed_channels' => $this->channels()]);
+            throw $this->restricted
+                ? new AgentException(403, "Channel `{$channel}` không được phép.", ['allowed_channels' => $this->channels()])
+                : new AgentException(404, "Không có channel `{$channel}` ghi ra file.", ['channels' => $this->channels()]);
         }
 
         $files = array_values(array_filter(
@@ -119,9 +138,9 @@ final class FileResolver
         }
 
         if ($missing !== []) {
-            throw new AgentException(403, 'File không có, hoặc không thuộc channel được phép: '.implode(', ', $missing).'.', [
-                'allowed_channels' => $this->channels(),
-            ]);
+            throw $this->restricted
+                ? new AgentException(403, 'File không có, hoặc không thuộc channel được phép: '.implode(', ', $missing).'.', ['allowed_channels' => $this->channels()])
+                : new AgentException(404, 'Log Viewer không liệt kê file: '.implode(', ', $missing).'.');
         }
 
         usort($selected, static fn (AgentFile $a, AgentFile $b): int => [$a->date ?? '', $a->name] <=> [$b->date ?? '', $b->name]);

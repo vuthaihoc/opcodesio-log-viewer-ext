@@ -6,6 +6,7 @@ namespace HocVT\LogViewerRemote\Agent;
 
 use HocVT\LogViewerRemote\Agent\Scan\Budget;
 use HocVT\LogViewerRemote\Agent\Scan\Entry;
+use HocVT\LogViewerRemote\Agent\Scan\EntryFilter;
 use HocVT\LogViewerRemote\Agent\Scan\EntryReader;
 use HocVT\LogViewerRemote\Agent\Scan\Normalizer;
 use HocVT\LogViewerRemote\Agent\Scan\ScanFile;
@@ -29,15 +30,21 @@ final class AgentService
 
     public function __construct(private readonly Router $router) {}
 
-    /** @return array<string, mixed> */
+    /**
+     * `$auth`: `agent` (token chỉ đọc → giới hạn channel), `shared` (shared secret) hoặc
+     * `local` (lệnh chạy ngay trên máy). Chỉ `agent` bị giới hạn channel.
+     *
+     * @return array<string, mixed>
+     */
     public function ping(string $auth): array
     {
-        $resolver = FileResolver::fromConfig();
+        $resolver = self::resolver($auth);
 
         return [
             'ok' => true,
             'version' => LogViewerRemote::VERSION,
             'auth' => $auth,
+            'restricted' => $resolver->restricted(),
             'channels' => $resolver->channels(),
             'aggregators' => Scanner::AGGREGATORS,
             'log_timezone' => AgentConfig::logTimezone(),
@@ -51,11 +58,12 @@ final class AgentService
     }
 
     /** @return array<string, mixed> */
-    public function files(): array
+    public function files(string $auth): array
     {
-        $resolver = FileResolver::fromConfig();
+        $resolver = self::resolver($auth);
 
         return [
+            'restricted' => $resolver->restricted(),
             'channels' => $resolver->channels(),
             'log_timezone' => AgentConfig::logTimezone(),
             'files' => array_map(static fn (AgentFile $f): array => $f->toArray(), $resolver->allowed()),
@@ -66,15 +74,22 @@ final class AgentService
      * @param  array<string, mixed>  $params
      * @return array<string, mixed>
      */
-    public function aggregate(array $params): array
+    public function aggregate(array $params, string $auth): array
     {
         $window = TimeWindow::fromInput(self::str($params, 'from'), self::str($params, 'to'), self::str($params, 'date'));
-        $files = FileResolver::fromConfig()->select(self::str($params, 'files'), self::str($params, 'channel'), $window->fromDate(), $window->toDate());
+        $files = self::resolver($auth)->select(self::str($params, 'files'), self::str($params, 'channel'), $window->fromDate(), $window->toDate());
         $only = self::list($params, 'only');
         $top = max(1, min(200, (int) (self::str($params, 'top') ?? 20)));
         $partial = filter_var($params['partial'] ?? false, FILTER_VALIDATE_BOOL);
 
-        $fingerprint = sha1((string) json_encode([array_map(static fn (AgentFile $f) => $f->name, $files), $window->toArray(), $only]));
+        // Lọc + gom tự do: `match` / `contains` / `level` lọc entry trước mọi bảng; `group` thêm
+        // bảng gom theo regex; `in=text` so trên cả entry thay vì dòng đầu (chậm hơn).
+        $wholeText = self::str($params, 'in') === 'text';
+        $group = self::str($params, 'group');
+        $filter = $this->filter($params, 'match', $wholeText);
+        $query = [$only, self::str($params, 'match'), self::str($params, 'contains'), self::list($params, 'level'), $wholeText, $group];
+
+        $fingerprint = sha1((string) json_encode([array_map(static fn (AgentFile $f) => $f->name, $files), $window->toArray(), $query]));
         $cursorId = self::str($params, 'cursor');
         $state = $cursorId !== null ? CursorStore::pull($cursorId, $fingerprint) : null;
 
@@ -82,7 +97,7 @@ final class AgentService
             ? 'lvr:agent:aggregate:'.sha1((string) json_encode([
                 LogViewerRemote::VERSION,
                 array_map(static fn (AgentFile $f) => [$f->name, $f->size, $f->mtime], $files),
-                $window->toArray(), $only, $top, AgentConfig::get('page_key'), AgentConfig::get('url_groups'),
+                $window->toArray(), $query, $top, AgentConfig::get('page_key'), AgentConfig::get('url_groups'),
             ]))
             : null;
 
@@ -91,9 +106,12 @@ final class AgentService
         }
 
         try {
-            $scanner = Scanner::make($this->normalizer(), $only, AgentConfig::int('cap'), AgentConfig::int('head_bytes'), AgentConfig::int('tail_bytes'));
+            $scanner = Scanner::make(
+                $this->normalizer(), $only, AgentConfig::int('cap'), AgentConfig::int('head_bytes'), AgentConfig::int('tail_bytes'),
+                filter: $filter, group: $group, groupWholeText: $wholeText,
+            );
         } catch (InvalidArgumentException $e) {
-            throw new AgentException(422, $e->getMessage(), ['aggregators' => Scanner::AGGREGATORS]);
+            throw new AgentException(422, $e->getMessage(), ['aggregators' => [...Scanner::AGGREGATORS, 'group']]);
         }
 
         $result = ScanSlots::run(fn () => $scanner->run(
@@ -126,9 +144,9 @@ final class AgentService
      * @param  array<string, mixed>  $params
      * @return array<string, mixed>
      */
-    public function entries(array $params): array
+    public function entries(array $params, string $auth): array
     {
-        $resolver = FileResolver::fromConfig();
+        $resolver = self::resolver($auth);
         $maxBytes = max(256, min(AgentConfig::int('entry_max_bytes'), (int) (self::str($params, 'max_bytes') ?? AgentConfig::int('entry_max_bytes'))));
         $limit = max(1, min(AgentConfig::int('entries_limit'), (int) (self::str($params, 'limit') ?? 10)));
 
@@ -145,7 +163,7 @@ final class AgentService
 
         $window = TimeWindow::fromInput(self::str($params, 'from'), self::str($params, 'to'), self::str($params, 'date'));
         $files = $resolver->select(self::str($params, 'files'), self::str($params, 'channel'), $window->fromDate(), $window->toDate());
-        $match = $this->matcher(self::str($params, 'contains'), self::str($params, 'regex'), self::list($params, 'level'));
+        $match = $this->filter($params, 'regex', wholeText: true);
         // `cursor` = `next` của lượt trước: đọc tiếp TỪ vị trí đó (tính cả entry tại đó).
         $resume = ($cursor = self::str($params, 'cursor')) !== null ? $this->position($cursor, $resolver) : null;
 
@@ -169,7 +187,7 @@ final class AgentService
                 $skipping = false;
 
                 foreach ($reader->read($offset, $scanWindow, $budget) as $entry) {
-                    if (! $match($entry)) {
+                    if (! $match->matches($entry)) {
                         continue;
                     }
 
@@ -198,6 +216,11 @@ final class AgentService
         return ['entries' => $found, 'next' => $next, 'complete' => $next === null, 'window' => $window->toArray()];
     }
 
+    private static function resolver(string $auth): FileResolver
+    {
+        return FileResolver::fromConfig(restricted: $auth === 'agent');
+    }
+
     private function normalizer(): Normalizer
     {
         return new Normalizer(
@@ -224,34 +247,17 @@ final class AgentService
     }
 
     /**
-     * @param  list<string>|null  $levels
-     * @return callable(Entry): bool
+     * `level`, `contains` và regex (`$regexKey`: `match` ở aggregate, `regex` ở entries).
+     *
+     * @param  array<string, mixed>  $params
      */
-    private function matcher(?string $contains, ?string $regex, ?array $levels): callable
+    private function filter(array $params, string $regexKey, bool $wholeText): EntryFilter
     {
-        $levels = $levels === null ? null : array_map('strtoupper', $levels);
-        $pattern = null;
-
-        if ($regex !== null) {
-            $pattern = '~'.str_replace('~', '\~', $regex).'~i';
-
-            if (@preg_match($pattern, '') === false) {
-                throw new AgentException(422, "Regex không hợp lệ: {$regex} (".preg_last_error_msg().').');
-            }
+        try {
+            return new EntryFilter(self::str($params, 'contains'), self::str($params, $regexKey), self::list($params, 'level'), $wholeText);
+        } catch (InvalidArgumentException $e) {
+            throw new AgentException(422, $e->getMessage().' (PCRE, không cần dấu phân cách).');
         }
-
-        return static function (Entry $entry) use ($contains, $pattern, $levels): bool {
-            if ($levels !== null && ! in_array($entry->level, $levels, true)) {
-                return false;
-            }
-
-            if ($contains !== null && stripos($entry->text, $contains) === false) {
-                return false;
-            }
-
-            // preg lỗi (backtrack limit, UTF-8 hỏng…) trả false: coi như không khớp.
-            return $pattern === null || preg_match($pattern, $entry->text) === 1;
-        };
     }
 
     /** @return array{0: AgentFile, 1: int} */

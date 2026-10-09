@@ -6,7 +6,7 @@ namespace HocVT\LogViewerRemote\Agent\Client;
 
 use HocVT\LogViewerRemote\Agent\AgentService;
 
-/** Host đang chạy lệnh: gọi thẳng AgentService, không qua HTTP, không cần token. */
+/** Host đang chạy lệnh: gọi thẳng AgentService, không qua HTTP, không cần token, không giới hạn channel. */
 final class LocalAgentClient implements AgentClient
 {
     public function __construct(private readonly AgentService $service) {}
@@ -23,16 +23,16 @@ final class LocalAgentClient implements AgentClient
 
     public function files(): array
     {
-        return $this->service->files();
+        return $this->service->files('local');
     }
 
     public function aggregate(array $params): array
     {
-        return $this->service->aggregate($params);
+        return $this->service->aggregate($params, 'local');
     }
 
     public function entries(array $params): array
     {
-        return $this->service->entries($params);
+        return $this->service->entries($params, 'local');
     }
 }

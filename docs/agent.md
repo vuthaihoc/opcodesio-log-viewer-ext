@@ -25,7 +25,7 @@ php artisan log-viewer-remote:aggregate   GET {log-viewer}/api/agent/aggregate
    php artisan log-viewer-remote:secret --agent
    ```
 
-2. Trên host bị đọc, khai các channel được phép đọc. Bỏ trống thì chỉ có channel của slow log:
+2. Trên host bị đọc, khai các channel mà **agent token** được đọc. Bỏ trống thì chỉ có channel của slow log:
 
    ```
    LOG_VIEWER_AGENT_CHANNELS=slow-log,daily
@@ -59,12 +59,12 @@ Cột **Agent** của lệnh check có thể hiện các giá trị sau:
   - nó chỉ hợp lệ ở `api/agent/*`, nơi chỉ có liệt kê file, gom số và đọc entry;
   - API của Log Viewer vendor (tải file, xoá file, xoá cache, danh sách host) và UI đều không nhận token này;
   - shared secret vẫn gọi được `api/agent/*`.
-- **Giới hạn theo channel**:
+- **Giới hạn theo channel — chỉ áp cho agent token**:
   - Laravel không ghi tên channel vào từng dòng log, nên package đổi channel thành đường dẫn file (`single`, `daily`, `stack`, `monolog` có `stream`);
-  - file agent đọc được là file Log Viewer liệt kê, giao với file thuộc channel cho phép;
-  - giới hạn này áp cho cả agent token lẫn shared secret;
-  - tham số `files` chỉ được chọn tên trong danh sách đó, không bao giờ mở đường dẫn do client gửi;
-  - **đừng mở channel chứa dữ liệu nhạy cảm** (nội dung request AI, payload webhook, biến GraphQL…), vì kết quả đi thẳng tới agent.
+  - với agent token, file đọc được là file Log Viewer liệt kê, giao với file thuộc `agent.channels`;
+  - **shared secret** và lệnh chạy ngay trên máy (`--host` bỏ trống) đọc được mọi file Log Viewer liệt kê, giống UI Log Viewer. Bảng `files` / `ping` trả `restricted: true|false` để biết đang ở chế độ nào;
+  - trong mọi trường hợp, tham số `files` chỉ được chọn tên trong danh sách của Log Viewer, không bao giờ mở đường dẫn do client gửi;
+  - **đừng mở channel chứa dữ liệu nhạy cảm cho agent token** (nội dung request AI, payload webhook, biến GraphQL…), vì kết quả đi thẳng tới agent.
 - **Che dữ liệu**: email và chuỗi trông như token bị che trong khoá gom (`<email>`, `<token>`) và trong chữ của `entries`. Số và id được giữ nguyên để còn lần theo.
 - **Giới hạn của token chỉ đọc**: agent chạy trên máy dev vẫn đọc được `.env`, gồm cả shared secret nếu máy dev có. Token chỉ đọc chống được việc lỡ tay, và dùng được ở chỗ không có shared secret. Nó không chống được một agent cố tình làm hại.
 - Lệnh agent thiếu `LOG_VIEWER_AGENT_TOKEN` thì gửi shared secret của host, và in cảnh báo.
@@ -78,6 +78,14 @@ Cột **Agent** của lệnh check có thể hiện các giá trị sau:
 | `log-viewer-remote:entries --host=m1 …` | Đọc trọn entry theo vị trí hoặc theo bộ lọc |
 
 Bỏ `--host` (hoặc `--host=local`) thì chạy ngay trong process trên máy này.
+
+`--via=<host>` đi vòng qua host đó: máy dev chỉ gọi host trung gian, nó forward tiếp bằng
+`?host=` (xem [Forward](#forward-qua-host)). Khi ấy `--host` là identifier trong
+`log-viewer.hosts` **của host trung gian**:
+
+```bash
+php artisan log-viewer-remote:aggregate --via=web --host=m1 --channel=slow-log --date=2026-10-05
+```
 
 **Chọn file**, theo một trong hai cách:
 - `--files=slow-log-2026-10-05.log,…`: tên lấy từ lệnh `files`;
@@ -95,16 +103,23 @@ Bỏ `--host` (hoặc `--host=local`) thì chạy ngay trong process trên máy 
 
 Kết quả luôn ghi lại `window.from` / `window.to` theo giờ log để đối chiếu.
 
-**Bảng gom** (`--only=`, mặc định có đủ):
+**Bảng gom** (`--only=`, mặc định có đủ).
 
-| Bảng | Từ đâu | Hàng | Số |
+> **Chỉ 2 bảng đọc được mọi log, 4 bảng còn lại chỉ đọc slow log.** `levels`, `messages` (và
+> `group`) đếm mọi entry Laravel — log lỗi `daily` / `daily_cli` cũng được. `pages`,
+> `sql_waste`, `commands`, `slow_queries` chỉ lấy từ dòng do SqlLogger ghi: chạy trên channel
+> không có slow log thì trống (bảng in `chỉ dòng slow log`, JSON có `applies_to: slow_log`).
+> Channel mặc định là channel của slow log, và agent token mặc định cũng chỉ được mở channel đó.
+
+| Bảng | Áp cho | Hàng | Số |
 |---|---|---|---|
-| `levels` | mọi entry | — | entries, first, last, levels, scopes (WEB / CLI / other) |
-| `messages` | mọi entry, thông điệp đã chuẩn hoá | `LEVEL \| thông điệp` | n, first, last, sample |
-| `pages` | slow log WEB | trang (route / tên operation) | summaries, queries, ms, slow_queries, slow_ms, max_*, worst_duplicate |
-| `sql_waste` | dòng nhóm của slow log tổng kết | SQL đã chuẩn hoá | waste = Σ(xN−1), count, ms, contexts, max_repeat, pages |
-| `commands` | slow log CLI | tên job / lệnh | runs, queries, ms, max_ms, slow_queries, slow_ms |
-| `slow_queries` | từng dòng query chậm | SQL đã chuẩn hoá | n, max_ms, first, last, pages |
+| `levels` | **mọi entry** | — | entries, first, last, levels, scopes (WEB / CLI / other) |
+| `messages` | **mọi entry**, thông điệp đã chuẩn hoá | `LEVEL \| thông điệp` | n, first, last, sample |
+| `group` | **mọi entry**, khớp regex `--group` | khoá do regex bắt | n, sum, max, levels |
+| `pages` | chỉ slow log WEB | trang (route / tên operation) | summaries, queries, ms, slow_queries, slow_ms, max_*, worst_duplicate |
+| `sql_waste` | chỉ dòng nhóm của slow log tổng kết | SQL đã chuẩn hoá | waste = Σ(xN−1), count, ms, contexts, max_repeat, pages |
+| `commands` | chỉ slow log CLI | tên job / lệnh | runs, queries, ms, max_ms, slow_queries, slow_ms |
+| `slow_queries` | chỉ dòng query chậm | SQL đã chuẩn hoá | n, max_ms, first, last, pages |
 
 `sample` = `file@offset` của lần gặp đầu. Đọc trọn entry đó bằng:
 
@@ -131,6 +146,40 @@ php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@112
 
 Còn kết quả thì lệnh in sẵn `--cursor=…` để đọc tiếp.
 
+## Tự lọc và gom theo regex
+
+Khi 6 bảng có sẵn không trả lời được câu hỏi, agent gửi regex của mình:
+
+| Tham số | Việc |
+|---|---|
+| `--match=<regex>` / `--contains=<chuỗi>` / `--level=error,critical` | Lọc entry **trước mọi bảng**: chỉ entry khớp mới được đếm. Đầu kết quả ghi `lọc: 12 / 77270 entry khớp` |
+| `--group=<regex>` | Thêm bảng `group`, gom theo regex (xem dưới) |
+| `--in=first` (mặc định) / `--in=text` | So regex / chuỗi trên dòng đầu, hay trên cả entry (stack trace, các dòng sau). `text` chậm hơn vì phải đọc chữ của mọi entry |
+
+Regex là PCRE, viết không cần dấu phân cách, không phân biệt hoa thường. Bảng `group` tính
+mỗi entry một lần, theo lần khớp đầu tiên:
+- nhóm có tên `key` làm khoá; không có thì nối các nhóm bắt không tên bằng ` | `; không có nhóm nào thì lấy cả đoạn khớp;
+- nhóm có tên `sum` là số thì được cộng dồn (`sum`) và lấy lớn nhất (`max`);
+- cột `levels` chia số entry khớp theo level;
+- khoá đã che email / token, và cắt ở 200 byte.
+
+```bash
+# Lỗi OOM / timeout hôm qua, gom theo thông điệp
+php artisan log-viewer-remote:aggregate --host=m1 --channel=daily_cli --date=2026-10-05 \
+  --level=error --match='OOM|timed out' --only=levels,messages
+
+# Job nào lỗi nhiều nhất, tổng thời gian chờ (đọc cả entry vì tên job nằm trong stack trace)
+php artisan log-viewer-remote:aggregate --host=worker --channel=daily_cli --date=2026-10-05 \
+  --in=text --group='App\\Jobs\\(?<key>\w+)' --only=group
+
+# Query chậm theo connection, cộng ms (slow log)
+php artisan log-viewer-remote:aggregate --host=m1 --in=text \
+  --group='(?m)^(?<sum>\d+)ms \[(?<key>\w+)\]' --level=alert --only=group
+```
+
+Regex tồi (backtracking nặng) chỉ làm lượt quét chậm tới trần `max_seconds`, không treo worker:
+lỗi lúc chạy của PCRE được coi như không khớp. Regex viết sai trả 422.
+
 ## Đọc số cho đúng
 
 - **Đếm `n`, đừng lấy trung bình** của query chậm. Chỉ query vượt `time_to_log` mới được ghi, nên đây là đuôi phân phối đã bị cắt: thời gian luôn quanh mép ngưỡng dù query thật nhanh hay chậm. `n` tăng vọt trong khi `max_ms` đứng yên là bão hoà do khối lượng (N+1, thiếu cache), không phải query plan tồi. Vì vậy bảng `slow_queries` cố ý không có avg.
@@ -153,30 +202,50 @@ Còn kết quả thì lệnh in sẵn `--cursor=…` để đọc tiếp.
 - Mỗi host chỉ chạy `agent.slots` lượt quét cùng lúc (mặc định 2). Hết chỗ thì host trả 429 kèm `Retry-After`; lệnh tự chờ rồi thử lại, tối đa 6 lần.
 - File đang được ghi thì entry cuối có thể đang ghi dở; nó được đọc như đã xong.
 
+## Forward qua `?host=`
+
+Endpoint agent của host đang xem nhận thêm `host=<id>`: request được chuyển nguyên sang host đó
+(giống `?host=` của API Log Viewer). Dùng khi máy gọi chỉ với tới host đang xem, còn các host
+khác nằm sau nó.
+
+- Chỉ forward tới host có trong `log-viewer.hosts` của host đang xem. Nó không nhận URL tuỳ ý, nên không thành SSRF.
+- **Credential đi theo loại của người gọi**, để quyền không bị nâng lên qua bước forward:
+  - gọi bằng agent token thì forward bằng agent token, host đích vẫn tự áp giới hạn channel;
+  - gọi bằng shared secret thì forward bằng credential của host, như đường forward của vendor.
+- Body, mã trạng thái và `Retry-After` được chuyển nguyên. Response mang header `X-Log-Viewer-Agent-Host`.
+- Cursor nằm ở host đích, nên các lượt sau chỉ cần gửi lại cùng `host`.
+- Host đích trả HTML (chưa nâng cấp) thì host đang xem trả 502. Không có host đó thì trả 404 kèm danh sách host.
+- Thời gian chờ chặng forward là `timeout.agent` (40 s); lệnh dùng `--via` tự cộng thêm 10 s.
+- `host=local`, hoặc host không có URL, thì xử lý tại chỗ.
+
 ## HTTP API
 
 Mọi endpoint là `GET {host}/{route_path}/api/agent/<action>` với header `Authorization: Bearer <token>`.
+Endpoint nào cũng nhận thêm `host=<id>` để forward (xem trên).
 
 | Action | Tham số | Trả |
 |---|---|---|
-| `ping` | — | `ok, version, auth (agent\|shared), channels, aggregators, log_timezone, input_timezone, limits` |
-| `files` | — | `channels, log_timezone, files[{name, channel, date, size, modified_at}]` |
-| `aggregate` | `files` \| `channel`, `date`, `from`, `to`, `only`, `top` (1–200), `cursor`, `partial=1` | `complete, cursor, cached, window, stats, results` |
+| `ping` | — | `ok, version, auth (agent\|shared), restricted, channels, aggregators, log_timezone, input_timezone, limits` |
+| `files` | — | `restricted, channels, log_timezone, files[{name, channel, date, size, modified_at}]` |
+| `aggregate` | `files` \| `channel`, `date`, `from`, `to`, `only`, `top` (1–200), `match`, `contains`, `level`, `in`, `group`, `cursor`, `partial=1` | `complete, cursor, cached, window, stats, results` |
 | `entries` | `at=file@offset` \| (`files` \| `channel`, `date`, `from`, `to`, `contains`, `regex`, `level`, `limit`, `max_bytes`, `cursor`) | `entries[{at, datetime, level, length, truncated, text}], next, complete` |
 
 `aggregate` chỉ kèm `results` khi `complete` (hoặc `partial=1`).
 
-`stats` gồm: `entries`, `scanned_bytes`, `total_bytes`, `percent_scanned`, `elapsed_ms`, `peak_memory_mb`, `files[{name, size, reached}]`.
+Mỗi bảng trong `results` có `applies_to`: `all` hoặc `slow_log`.
+
+`stats` gồm: `entries` (sau lọc), `scanned_entries` (trước lọc), `scanned_bytes`, `total_bytes`, `percent_scanned`, `elapsed_ms`, `peak_memory_mb`, `files[{name, size, reached}]`.
 
 Lỗi trả về dạng `{"error": "…", …}`:
 
 | Mã | Khi nào |
 |---|---|
-| 403 | Token sai, hoặc file / channel không được phép (kèm `allowed_channels`) |
-| 404 | Channel không có file trong khoảng đã chọn |
+| 403 | Token sai, hoặc (agent token) file / channel không được phép, kèm `allowed_channels` |
+| 404 | File / channel không có, channel không có file trong khoảng đã chọn, hoặc `host` không có |
 | 410 | Cursor hết hạn hoặc đã dùng |
-| 422 | Tham số sai: thời gian, `only`, regex, cursor của bộ tham số khác |
+| 422 | Tham số sai: thời gian, `only`, regex (`match`, `group`, `regex`), cursor của bộ tham số khác |
 | 429 | Host đủ lượt quét (`retry_after`) |
+| 502 | Forward: không kết nối được host đích, hoặc host đích trả HTML |
 
 ```bash
 curl -s -H "Authorization: Bearer $LOG_VIEWER_AGENT_TOKEN" \
@@ -188,7 +257,7 @@ curl -s -H "Authorization: Bearer $LOG_VIEWER_AGENT_TOKEN" \
 | Key | Env | Mặc định | Ý nghĩa |
 |---|---|---|---|
 | `token` | `LOG_VIEWER_AGENT_TOKEN` | — | Token chỉ đọc |
-| `channels` | `LOG_VIEWER_AGENT_CHANNELS` | channel của slow log | Channel được đọc |
+| `channels` | `LOG_VIEWER_AGENT_CHANNELS` | channel của slow log | Channel agent token được đọc (shared secret không bị giới hạn) |
 | `max_seconds` | `LOG_VIEWER_AGENT_MAX_SECONDS` | 20 | Trần mỗi request |
 | `max_bytes` | — | 0 | Trần byte mỗi request, 0 = chỉ giới hạn thời gian |
 | `slots` | — | 2 | Số lượt quét đồng thời |
@@ -228,6 +297,5 @@ Chưa dùng `grep` vì:
 
 - **`grep` làm nguồn header**, khi cần quét log lỗi rất lớn. Chỉ phải thay `EntryReader::headers()`, giữ đường PHP làm dự phòng.
 - **Cache tăng dần cho file đang ghi.** Trạng thái cursor đã đủ để quét tiếp từ chỗ cũ.
-- **Forward qua `?host=`** từ host đang xem. Hiện lệnh gọi thẳng từng host.
 - **MCP server** cho agent không dùng Bash.
 - `entries --contains` chỉ tìm trong phần đầu và phần cuối đã giữ của entry dài.

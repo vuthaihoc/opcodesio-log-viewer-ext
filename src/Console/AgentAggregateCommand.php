@@ -21,21 +21,27 @@ class AgentAggregateCommand extends Command
 
     protected $signature = 'log-viewer-remote:aggregate
         {--host= : identifier trong log-viewer.hosts; bỏ trống = máy này}
+        {--via= : đi vòng qua host này (nó forward bằng ?host=); --host khi ấy là host trong config của nó}
         {--files= : tên file cách nhau dấu phẩy (xem log-viewer-remote:files)}
         {--channel= : channel log; mặc định channel của slow log}
         {--date= : cả một ngày theo giờ người hỏi (Y-m-d)}
         {--from= : ISO 8601, `Y-m-d H:i` (giờ người hỏi) hoặc `-2 hours`}
         {--to= : như --from}
-        {--only= : levels,messages,pages,sql_waste,commands,slow_queries}
+        {--only= : levels,messages,pages,sql_waste,commands,slow_queries,group}
+        {--match= : chỉ gom entry khớp regex này (PCRE, không cần dấu phân cách)}
+        {--contains= : chỉ gom entry chứa chuỗi này}
+        {--level= : chỉ gom các level này, vd. error,critical}
+        {--group= : thêm bảng group: gom theo regex; nhóm tên key = khoá, nhóm tên sum = số cộng dồn}
+        {--in=first : so --match / --contains / --group trên dòng đầu (first) hay cả entry (text, chậm hơn)}
         {--top=20 : số hàng mỗi bảng}
         {--json : in JSON đầy đủ thay vì bảng}';
 
-    protected $description = 'Gom số liệu log (level, thông điệp, trang, query thừa, command, query chậm) ngay trên host';
+    protected $description = 'Gom số liệu log ngay trên host: level, thông điệp (mọi entry); trang, query thừa, command, query chậm (chỉ slow log); gom theo regex';
 
     public function handle(AgentClients $clients): int
     {
         try {
-            $client = $clients->for($this->option('host'));
+            $client = $clients->for($this->option('host'), $this->option('via'));
         } catch (AgentException $e) {
             $this->error($e->getMessage());
 
@@ -53,6 +59,11 @@ class AgentAggregateCommand extends Command
             'from' => $this->option('from'),
             'to' => $this->option('to'),
             'only' => $this->option('only'),
+            'match' => $this->option('match'),
+            'contains' => $this->option('contains'),
+            'level' => $this->option('level'),
+            'group' => $this->option('group'),
+            'in' => $this->option('in') === 'text' ? 'text' : null,
             'top' => (string) $this->option('top'),
         ], static fn ($v) => $v !== null && $v !== '');
 

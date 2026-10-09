@@ -13,6 +13,7 @@ class AgentFilesCommand extends Command
 {
     protected $signature = 'log-viewer-remote:files
         {--host= : identifier trong log-viewer.hosts; bỏ trống = máy này}
+        {--via= : đi vòng qua host này (nó forward bằng ?host=); --host khi ấy là host trong config của nó}
         {--channel= : chỉ channel này}
         {--json : in JSON}';
 
@@ -21,7 +22,7 @@ class AgentFilesCommand extends Command
     public function handle(AgentClients $clients): int
     {
         try {
-            $client = $clients->for($this->option('host'));
+            $client = $clients->for($this->option('host'), $this->option('via'));
             $payload = $client->files();
         } catch (AgentException $e) {
             $this->error("HTTP {$e->status}: {$e->getMessage()}");

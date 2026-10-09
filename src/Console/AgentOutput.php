@@ -39,6 +39,10 @@ final class AgentOutput
             (array) ($stats['files'] ?? []),
         ));
 
+        if (($stats['scanned_entries'] ?? null) !== null && $stats['scanned_entries'] !== ($stats['entries'] ?? null)) {
+            $lines[] = "lọc: {$stats['entries']} / {$stats['scanned_entries']} entry khớp";
+        }
+
         foreach ((array) ($payload['results'] ?? []) as $name => $result) {
             $lines[] = '';
             $lines = array_merge($lines, $name === 'levels' ? self::levels((array) $result) : self::tally((string) $name, (array) $result));
@@ -94,10 +98,17 @@ final class AgentOutput
     private static function tally(string $name, array $result): array
     {
         $rows = (array) ($result['rows'] ?? []);
-        $head = sprintf('## %s (%d khoá%s)', $name, $result['keys'] ?? count($rows), ($result['pruned'] ?? 0) > 0 ? ', bỏ '.$result['pruned'].' khoá nhỏ' : '');
+        $slowLogOnly = ($result['applies_to'] ?? 'all') === 'slow_log';
+        $head = sprintf(
+            '## %s (%d khoá%s%s)',
+            $name,
+            $result['keys'] ?? count($rows),
+            ($result['pruned'] ?? 0) > 0 ? ', bỏ '.$result['pruned'].' khoá nhỏ' : '',
+            $slowLogOnly ? ' · chỉ dòng slow log' : '',
+        );
 
         if ($rows === []) {
-            return [$head, '(trống)'];
+            return [$head, $slowLogOnly ? '(trống — các file này không có dòng slow log)' : '(trống)'];
         }
 
         $columns = ['key'];

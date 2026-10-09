@@ -52,9 +52,10 @@ return [
         // được các endpoint này.
         'token' => env('LOG_VIEWER_AGENT_TOKEN'),
 
-        // Channel (config logging.channels) mà agent được đọc, cách nhau bằng dấu phẩy.
-        // Bỏ trống = chỉ channel của slow log. Đừng mở channel chứa dữ liệu nhạy cảm
-        // (request AI, payload webhook…): kết quả đi thẳng tới agent.
+        // Channel (config logging.channels) mà AGENT TOKEN được đọc, cách nhau bằng dấu phẩy.
+        // Bỏ trống = chỉ channel của slow log. Shared secret không bị giới hạn (như UI Log
+        // Viewer). Đừng mở channel chứa dữ liệu nhạy cảm (request AI, payload webhook…):
+        // kết quả đi thẳng tới agent.
         'channels' => env('LOG_VIEWER_AGENT_CHANNELS'),
 
         // Trần mỗi request: hết thì dừng ở đầu entry và trả `cursor` để gọi tiếp.

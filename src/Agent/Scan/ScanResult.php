@@ -15,6 +15,7 @@ final class ScanResult
         public readonly bool $complete,
         public readonly ?array $cursor,
         public readonly int $entries,
+        public readonly int $scannedEntries,
         public readonly int $scannedBytes,
         public readonly int $totalBytes,
         public readonly float $percent,
@@ -24,13 +25,17 @@ final class ScanResult
     ) {}
 
     /**
-     * Kết quả của từng aggregator (cả khi chưa xong: số liệu tới vị trí đã đọc).
+     * Kết quả của từng aggregator (cả khi chưa xong: số liệu tới vị trí đã đọc), kèm
+     * `applies_to` (Scanner::APPLIES_TO).
      *
      * @return array<string, array<string, mixed>>
      */
     public function results(int $top): array
     {
-        return array_map(static fn (Aggregator $a): array => $a->result($top), $this->aggregators);
+        return array_map(
+            static fn (Aggregator $a): array => ['applies_to' => Scanner::APPLIES_TO[$a->name()] ?? 'all'] + $a->result($top),
+            $this->aggregators,
+        );
     }
 
     /** @return array<string, mixed> */
@@ -39,6 +44,7 @@ final class ScanResult
         return [
             'complete' => $this->complete,
             'entries' => $this->entries,
+            'scanned_entries' => $this->scannedEntries,
             'scanned_bytes' => $this->scannedBytes,
             'total_bytes' => $this->totalBytes,
             'percent_scanned' => $this->percent,

@@ -16,8 +16,9 @@ final class RemoteHttp
 {
     /**
      * @param  array<string, string>  $headers  header nền; header khai trong config host được ưu tiên
+     * @param  bool  $withAuth  false = chỉ gắn header của host, người gọi tự gắn token (agent token)
      */
-    public static function client(Host $host, int $timeout, array $headers = []): PendingRequest
+    public static function client(Host $host, int $timeout, array $headers = [], bool $withAuth = true): PendingRequest
     {
         $credentials = HostCredentials::for($host);
 
@@ -27,7 +28,7 @@ final class RemoteHttp
             $request = $request->withoutVerifying();
         }
 
-        $auth = $credentials['auth'];
+        $auth = $withAuth ? $credentials['auth'] : [];
 
         return match (true) {
             isset($auth['token']) && $auth['token'] !== '' => $request->withToken((string) $auth['token']),

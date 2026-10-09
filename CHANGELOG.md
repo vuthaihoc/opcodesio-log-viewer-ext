@@ -5,8 +5,10 @@
 **Agent phân tích log từ xa** — tính ngay trên host có file, không tải file về. Xem `docs/agent.md`.
 
 - Endpoint `{route_path}/api/agent/{ping,files,aggregate,entries}`, Bearer = `LOG_VIEWER_AGENT_TOKEN` (chỉ đọc: chỉ hợp lệ ở nhóm này, không tải / xoá file, không vào UI) hoặc shared secret.
-- Giới hạn theo channel (`LOG_VIEWER_AGENT_CHANNELS`, mặc định chỉ channel slow log): channel → file (single / daily / stack / monolog stream); áp cho cả agent token lẫn shared secret.
-- `aggregate`: 6 bảng trong một lượt đọc — `levels`, `messages`, `pages` (gộp theo route / tên operation GraphQL / referer Livewire), `sql_waste` (Σ(xN−1)), `commands`, `slow_queries` (n + max, không avg). 342 MB / 77 nghìn entry: 3,9 s, 52 MB.
+- Giới hạn theo channel cho **agent token** (`LOG_VIEWER_AGENT_CHANNELS`, mặc định chỉ channel slow log): channel → file (single / daily / stack / monolog stream). Shared secret đọc được mọi file Log Viewer liệt kê, như UI.
+- Forward `?host=<id>` từ host đang xem (lệnh: `--via`): credential theo loại người gọi — agent token forward bằng agent token, không nâng quyền qua bước forward.
+- `aggregate`: 6 bảng trong một lượt đọc — `levels`, `messages` (mọi entry); `pages` (gộp theo route / tên operation GraphQL / referer Livewire), `sql_waste` (Σ(xN−1)), `commands`, `slow_queries` (n + max, không avg) chỉ từ dòng slow log (`applies_to`). 342 MB / 77 nghìn entry: 3,9 s, 52 MB.
+- Lọc + gom theo regex của người gọi: `match` / `contains` / `level` lọc trước mọi bảng; `group` thêm bảng gom (nhóm `key` = khoá, nhóm `sum` = số cộng dồn); `in=text` so trên cả entry.
 - Trần `max_seconds` mỗi request + cursor giữ trạng thái ở server (quét chia nhỏ ra đúng kết quả quét một lượt); giới hạn lượt quét đồng thời (429 + Retry-After); cache kết quả file đã đóng.
 - `from` / `to` / `date` theo giờ người hỏi (`log-viewer.timezone`), đổi sang giờ của log; tự chọn file daily trong khoảng.
 - `entries`: đọc trọn entry theo `file@offset` hoặc lọc contains / regex / level; che email và token.

@@ -16,6 +16,7 @@ class AgentEntriesCommand extends Command
 {
     protected $signature = 'log-viewer-remote:entries
         {--host= : identifier trong log-viewer.hosts; bỏ trống = máy này}
+        {--via= : đi vòng qua host này (nó forward bằng ?host=); --host khi ấy là host trong config của nó}
         {--at= : đúng một entry: file@offset}
         {--files= : tên file cách nhau dấu phẩy}
         {--channel= : channel log; mặc định channel của slow log}
@@ -49,7 +50,7 @@ class AgentEntriesCommand extends Command
         ], static fn ($v) => $v !== null && $v !== '');
 
         try {
-            $client = $clients->for($this->option('host'));
+            $client = $clients->for($this->option('host'), $this->option('via'));
             $payload = $client->entries($params);
         } catch (AgentException $e) {
             $this->error("HTTP {$e->status}: {$e->getMessage()}");

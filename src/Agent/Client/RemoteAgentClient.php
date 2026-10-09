@@ -13,14 +13,22 @@ use Opcodes\LogViewer\Host;
 /**
  * Gọi `api/agent/*` của host xa. Ưu tiên agent token (chỉ đọc); máy này chưa khai thì
  * dùng credential của host (shared secret) và báo cho lệnh biết để in cảnh báo.
+ *
+ * `$target` khác null = đi vòng qua `$host`: gửi `?host=<target>` để host đó forward tiếp
+ * (target là identifier trong log-viewer.hosts CỦA host trung gian).
  */
 final class RemoteAgentClient implements AgentClient
 {
-    public function __construct(private readonly Host $host) {}
+    public function __construct(
+        private readonly Host $host,
+        private readonly ?string $target = null,
+    ) {}
 
     public function name(): string
     {
-        return (string) $this->host->identifier;
+        return $this->target === null
+            ? (string) $this->host->identifier
+            : $this->target.' (qua '.$this->host->identifier.')';
     }
 
     /** true khi máy này không có agent token, phải gửi shared secret. */
@@ -55,10 +63,16 @@ final class RemoteAgentClient implements AgentClient
      */
     private function get(string $action, array $params = []): array
     {
-        $request = RemoteHttp::client($this->host, (int) config('log-viewer-remote.timeout.agent', 40))->acceptJson();
+        // Đi vòng thì host trung gian còn phải chờ host đích: thêm thời gian cho chặng đó.
+        $timeout = (int) config('log-viewer-remote.timeout.agent', 40) + ($this->target === null ? 0 : 10);
+        $request = RemoteHttp::client($this->host, $timeout, withAuth: $this->usesSharedSecret())->acceptJson();
 
         if (! $this->usesSharedSecret()) {
             $request = $request->withToken(AgentConfig::token());
+        }
+
+        if ($this->target !== null) {
+            $params['host'] = $this->target;
         }
 
         try {
