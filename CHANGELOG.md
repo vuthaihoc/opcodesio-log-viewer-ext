@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.2.0 — chưa phát hành
+
+**Agent phân tích log từ xa** — tính ngay trên host có file, không tải file về. Xem `docs/agent.md`.
+
+- Endpoint `{route_path}/api/agent/{ping,files,aggregate,entries}`, Bearer = `LOG_VIEWER_AGENT_TOKEN` (chỉ đọc: chỉ hợp lệ ở nhóm này, không tải / xoá file, không vào UI) hoặc shared secret.
+- Giới hạn theo channel (`LOG_VIEWER_AGENT_CHANNELS`, mặc định chỉ channel slow log): channel → file (single / daily / stack / monolog stream); áp cho cả agent token lẫn shared secret.
+- `aggregate`: 6 bảng trong một lượt đọc — `levels`, `messages`, `pages` (gộp theo route / tên operation GraphQL / referer Livewire), `sql_waste` (Σ(xN−1)), `commands`, `slow_queries` (n + max, không avg). 342 MB / 77 nghìn entry: 3,9 s, 52 MB.
+- Trần `max_seconds` mỗi request + cursor giữ trạng thái ở server (quét chia nhỏ ra đúng kết quả quét một lượt); giới hạn lượt quét đồng thời (429 + Retry-After); cache kết quả file đã đóng.
+- `from` / `to` / `date` theo giờ người hỏi (`log-viewer.timezone`), đổi sang giờ của log; tự chọn file daily trong khoảng.
+- `entries`: đọc trọn entry theo `file@offset` hoặc lọc contains / regex / level; che email và token.
+- Lệnh `log-viewer-remote:aggregate`, `:entries`, `:files` (in-process cho máy này hoặc HTTP tới host xa, tự đi theo cursor); `:check` thêm cột Agent; `:secret --agent`.
+- Skill cho Claude Code: `vendor:publish --tag=log-viewer-remote-skill`.
+- Config: nhóm `timeout`, `agent`, `trace`, `dedicated` được gộp sâu thêm một cấp — app chỉ ghi key mình đổi mà không mất key đọc env của package.
+- Unit test PHP thuần ngay trong package (`composer test`).
+
 ## v1.1.0 — 2026-10-09
 
 - **Slow query log** (`HocVT\LogViewerRemote\SlowLog`, config `slow-log`). Log ngay query chậm hơn ngưỡng; tổng kết mỗi request / job / command khi quá nhiều query, tổng thời gian quá lớn hoặc một query lặp nhiều lần (nghi N+1). **Mặc định tắt** — bật bằng `SLOW_LOG_ENABLED=true`. Tài liệu: `docs/slow-log.md`.

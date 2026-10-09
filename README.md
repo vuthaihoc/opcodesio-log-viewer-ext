@@ -13,6 +13,9 @@ Mở rộng [opcodesio/log-viewer](https://github.com/opcodesio/log-viewer) cho 
 4. **Slow query log.** Log query chậm và cảnh báo request/job có quá nhiều query (N+1),
    che sạch bí mật trong SQL lẫn URL, truy vết về đúng file Blade / component Livewire.
    Mặc định tắt — xem [Slow query log](#slow-query-log).
+5. **Agent phân tích log từ xa.** Lệnh `log-viewer-remote:aggregate` / `:entries` gom số liệu
+   (lỗi, trang chậm, N+1, job tốn DB…) ngay trên host có file, không tải file về; token chỉ đọc,
+   giới hạn theo channel — xem [Agent](#agent-phân-tích-log-từ-xa).
 
 ## Cài
 
@@ -128,6 +131,21 @@ Debugbar thì các phần đó tự thành no-op. Publish config:
 
 Tài liệu đầy đủ (tích hợp, ngưỡng, cách che dữ liệu, đọc log): [docs/slow-log.md](docs/slow-log.md).
 
+## Agent phân tích log từ xa
+
+```bash
+php artisan log-viewer-remote:secret --agent     # một lần, copy LOG_VIEWER_AGENT_TOKEN sang mọi host
+php artisan log-viewer-remote:check              # cột Agent: phiên bản + channel cho phép của từng host
+php artisan log-viewer-remote:aggregate --host=m1 --channel=slow-log --date=2026-10-05
+php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@1124892
+```
+
+Host bị đọc khai channel được phép (`LOG_VIEWER_AGENT_CHANNELS=slow-log,daily`; bỏ trống = chỉ
+slow log). Agent token chỉ gọi được `api/agent/*` — không tải / xoá file, không vào UI. Skill
+cho Claude Code: `php artisan vendor:publish --tag=log-viewer-remote-skill`.
+
+Tài liệu đầy đủ (bảy thao tác hay làm, cách đọc số, HTTP API, cấu hình): [docs/agent.md](docs/agent.md).
+
 ## Những chỗ dễ làm hỏng khi sửa
 
 - **Host trả ra ngoài không có credential.** Vendor đưa nguyên `LogViewer::getHosts()` vào
@@ -180,5 +198,9 @@ muốn, publish `config/log-viewer.php` rồi thu hẹp `include_files`.
 
 ## Test
 
-Chưa có test riêng trong package (cần orchestra/testbench). Test tích hợp nằm ở project
+Phần cần Laravel chưa có test trong package (cần orchestra/testbench). Test tích hợp nằm ở project
 dùng package: `tests/Feature/LogViewer/`, `tests/Feature/SqlLog/`, `tests/Unit/LoggableUrlTest.php`.
+
+Phần PHP thuần (bộ đọc log của agent, `src/Agent/Scan`, `src/Agent/ChannelFiles.php`) có unit
+test ngay trong package: `composer install && composer test`, hoặc từ app đang dùng package:
+`vendor/bin/phpunit -c <đường dẫn package>/phpunit.xml`.

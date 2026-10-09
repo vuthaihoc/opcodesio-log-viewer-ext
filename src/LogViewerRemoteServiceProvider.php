@@ -59,6 +59,11 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
             __DIR__.'/../config/log-viewer-remote.php' => config_path('log-viewer-remote.php'),
         ], 'log-viewer-remote-config');
 
+        // Skill cho agent AI (Claude Code): cách dùng lệnh agent + cách đọc số cho đúng.
+        $this->publishes([
+            __DIR__.'/../stubs/skill/SKILL.md' => base_path('.claude/skills/log-viewer-remote/SKILL.md'),
+        ], 'log-viewer-remote-skill');
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 CheckHostsCommand::class,
