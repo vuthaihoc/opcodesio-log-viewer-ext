@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.0 — chưa phát hành
+## v1.3.0 — 2026-10-09
 
 - **Một file config `log-viewer-ext`** (`config/log-viewer-ext.php`, publish tag `log-viewer-ext-config`) thay cho `log-viewer-remote.php` + `slow-log.php`: auth / host xa ở gốc, nhóm `agent`, nhóm `slow_log`. Env giữ nguyên tên.
 - Gộp **đệ quy** với config của app (thay cho gộp sâu một cấp): app chỉ ghi key mình đổi, kể cả trong nhóm lồng nhau; danh sách thì thay hẳn.
