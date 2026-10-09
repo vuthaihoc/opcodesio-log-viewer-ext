@@ -20,8 +20,19 @@ return [
     // Chỉ gắn listener ở các môi trường này (testing không có để test khỏi ồn).
     'environments' => ['local', 'production'],
 
-    // Kênh log; null = kênh mặc định của app.
+    // Kênh log: null = kênh mặc định của app; tên channel app đã khai; hoặc tên trong
+    // `dedicated` dưới đây để ghi ra file riêng (package tự khai channel đó).
     'channel' => env('SLOW_LOG_CHANNEL'),
+
+    // Channel riêng do package khai (driver daily) nếu app chưa có channel cùng tên.
+    // File riêng thì đọc nhanh, và cấp quyền cho agent theo channel được.
+    // Key nào thiếu thì lấy mặc định trong code (name slow-log, logs/slow-log.log, 14 ngày).
+    'dedicated' => [
+        'name' => 'slow-log',
+        'path' => storage_path('logs/slow-log.log'),
+        'days' => env('SLOW_LOG_DAYS', 14),
+        'permission' => null,  // web và CLI khác user mà ghi chung file thì đặt 0666
+    ],
 
     // Mức của dòng query chậm. Dòng tổng kết luôn là warning.
     'level' => env('SLOW_LOG_LEVEL', 'alert'),

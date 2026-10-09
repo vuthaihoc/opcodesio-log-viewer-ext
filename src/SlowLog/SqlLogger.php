@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace HocVT\LogViewerRemote\SlowLog;
 
 use HocVT\LogViewerRemote\Support\LoggableUrl;
+use HocVT\LogViewerRemote\Support\SqlFingerprint;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -16,6 +18,10 @@ use Illuminate\Support\Facades\Log;
  * và tích luỹ bộ nhớ trong các process chạy dài (queue:work, schedule:run).
  *
  * Config: `slow-log` (config/slow-log.php của package) — xem docs/slow-log.md.
+ *
+ * Định dạng dòng log là hợp đồng với bộ đọc của agent (HocVT\LogViewerRemote\Agent):
+ * context mang `slow_log` = `query` | `summary` cùng các trường máy đọc, phần chữ chỉ để
+ * người đọc. Đổi định dạng thì đổi cả parser và test khớp format ở app.
  */
 class SqlLogger
 {
@@ -68,6 +74,11 @@ class SqlLogger
 
     protected CompiledViewResolver $resolver;
 
+    /** Job / command đang chạy: vào nhãn `[CLI][…]` và context `cli.context`. Job ưu tiên hơn command. */
+    protected ?string $job = null;
+
+    protected ?string $command = null;
+
     public function __construct(array $config = [])
     {
         $config += (array) config('slow-log', []);
@@ -109,6 +120,31 @@ class SqlLogger
     public function isEnabled(): bool
     {
         return $this->enabled;
+    }
+
+    public function enterCommand(string $name): void
+    {
+        $this->command = $name;
+    }
+
+    public function leaveCommand(): void
+    {
+        $this->command = null;
+    }
+
+    public function enterJob(string $name): void
+    {
+        $this->job = $name;
+    }
+
+    public function leaveJob(): void
+    {
+        $this->job = null;
+    }
+
+    public function currentContext(): ?string
+    {
+        return $this->job ?? $this->command;
     }
 
     /**
@@ -158,6 +194,8 @@ class SqlLogger
             return;
         }
 
+        $context ??= $this->currentContext();
+
         try {
             $reasons = $this->reasons();
 
@@ -165,11 +203,14 @@ class SqlLogger
                 Log::channel($this->channel)->warning(
                     $this->contextLabel($context).' '.implode(' + ', $reasons)."\n".$this->summary(),
                     [
+                        'slow_log' => 'summary',
+                        'reasons' => array_keys($reasons),
                         'total' => $this->total,
                         'total_ms' => round($this->totalMs, 2),
                         'total_class' => $this->totalClass(),
                         'unique_queries' => count($this->groups),
-                    ] + $this->requestContext()
+                        'worst_duplicate' => $this->maxDuplicate(),
+                    ] + $this->scopeContext($context)
                 );
             }
         } catch (\Throwable $ex) {
@@ -188,28 +229,31 @@ class SqlLogger
     }
 
     /**
-     * @return list<string>
+     * Mã (vào context `reasons`, cho máy đọc) => câu (vào dòng log, cho người đọc).
+     *
+     * @return array<'total'|'total_ms'|'duplicate', string>
      */
     protected function reasons(): array
     {
         $reasons = [];
 
         if ($this->totalToLog > 0 && $this->total > $this->totalToLog) {
-            $reasons[] = "Quá nhiều query [{$this->totalClass()}]: {$this->total} query";
+            $reasons['total'] = "Quá nhiều query [{$this->totalClass()}]: {$this->total} query";
         }
 
         if ($this->totalMsToLog > 0 && $this->totalMs > $this->totalMsToLog) {
-            $reasons[] = 'Tổng thời gian query '.round($this->totalMs).'ms > '.$this->totalMsToLog.'ms';
+            $reasons['total_ms'] = 'Tổng thời gian query '.round($this->totalMs).'ms > '.$this->totalMsToLog.'ms';
         }
 
-        if ($this->duplicateToLog > 0 && ($worst = $this->worstDuplicate()) !== null) {
-            $reasons[] = "Nghi ngờ N+1: 1 query lặp {$worst}x";
+        if ($this->duplicateToLog > 0 && ($worst = $this->maxDuplicate()) >= $this->duplicateToLog) {
+            $reasons['duplicate'] = "Nghi ngờ N+1: 1 query lặp {$worst}x";
         }
 
         return $reasons;
     }
 
-    protected function worstDuplicate(): ?int
+    /** Số lần lặp của query lặp nhiều nhất trong context. */
+    protected function maxDuplicate(): int
     {
         $max = 0;
 
@@ -217,7 +261,7 @@ class SqlLogger
             $max = max($max, $group['count']);
         }
 
-        return $max >= $this->duplicateToLog ? $max : null;
+        return $max;
     }
 
     protected function summary(): string
@@ -236,9 +280,11 @@ class SqlLogger
         ];
 
         foreach (array_slice($groups, 0, $this->topQueries) as $group) {
+            // Luôn có một dấu cách giữa `xN` và số ms, kể cả khi số dài hơn cột:
+            // định dạng cũ `%4s%6s` ra `x10000100000ms` khi lặp 10000 lần, tổng 100000ms.
             $lines[] = sprintf(
-                '  %s%6sms [%s] %s',
-                $group['count'] > 1 ? str_pad('x'.$group['count'], 4, ' ', STR_PAD_LEFT) : str_repeat(' ', 4),
+                '  %5s %7sms [%s] %s',
+                $group['count'] > 1 ? 'x'.$group['count'] : '',
                 round($group['ms']),
                 $group['connection'],
                 $this->truncate($group['sql'])
@@ -262,13 +308,19 @@ class SqlLogger
 
     protected function logSlowQuery(QueryExecuted $event): void
     {
+        $context = $this->currentContext();
+
         try {
             Log::channel($this->channel)->{$this->level}(
-                $this->contextLabel()."\n"
+                $this->contextLabel($context)."\n"
                 .round((float) $event->time).'ms ['.$event->connectionName.'] '
                 .$this->truncate($this->sqlOf($event))
                 .$this->findSource(),
-                $this->requestContext()
+                [
+                    'slow_log' => 'query',
+                    'ms' => round((float) $event->time, 2),
+                    'connection' => $event->connectionName,
+                ] + $this->scopeContext($context)
             );
         } catch (\Throwable $ex) {
             Log::error('SqlLogger error: '.$ex->getMessage());
@@ -305,7 +357,19 @@ class SqlLogger
     }
 
     /**
-     * URL và referer (đã che qua LoggableUrl) để lọc log theo trang; CLI/job không có.
+     * `cli.context` khi đang trong job / command, cộng context request khi chạy web.
+     *
+     * @return array<string, string>
+     */
+    protected function scopeContext(?string $context): array
+    {
+        return ($context !== null ? ['cli.context' => $context] : []) + $this->requestContext();
+    }
+
+    /**
+     * URL, route và referer để lọc log theo trang; CLI/job không có. URL và referer đã che
+     * qua LoggableUrl; `req.route` là URI template của route (`/video/{id}/{slug?}`), gom
+     * theo trang mà không phải đoán từ URL.
      * Dùng cùng key với middleware chia sẻ context request (nếu project có, gọi
      * `Log::shareContext(['req.url' => …])`) — Laravel gộp context bằng array_merge nên
      * hai nơi cùng ghi cũng chỉ ra một key.
@@ -320,8 +384,11 @@ class SqlLogger
 
         $request = request();
 
+        $route = $request->route();
+
         return array_filter([
             'req.url' => LoggableUrl::fromRequest($request),
+            'req.route' => $route instanceof Route ? '/'.ltrim($route->uri(), '/') : null,
             'req.referer' => LoggableUrl::fromString($request->headers->get('referer')),
         ], static fn (?string $value): bool => $value !== null);
     }
@@ -378,10 +445,7 @@ class SqlLogger
      */
     protected function fingerprint(string $sql): string
     {
-        $sql = preg_replace('/\?(\s*,\s*\?)+/', '?, ...', $sql) ?? $sql;
-        $sql = preg_replace('/\s+/', ' ', $sql) ?? $sql;
-
-        return trim($sql);
+        return SqlFingerprint::of($sql);
     }
 
     protected function truncate(string $sql): string

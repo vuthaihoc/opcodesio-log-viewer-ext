@@ -6,6 +6,10 @@
 - Giá trị binding mặc định không ghi; `SLOW_LOG_RAW_BINDINGS` chỉ có tác dụng ở `local` và vẫn che hash, token, chuỗi dài, binary, bảng nhạy cảm.
 - Truy vết query chậm quy file compiled về nguồn, bật tắt riêng: Blade (`trace.blade`), Livewire 4 (`trace.livewire`). Bản vá tên nguồn query của Debugbar cho Livewire: `debugbar_livewire` (chỉ local).
 - `HocVT\LogViewerRemote\Support\LoggableUrl`: URL an toàn để ghi log — che tham số route / query có tên nhạy cảm và đoạn path trông như token.
+- **Channel riêng cho slow log**: `SLOW_LOG_CHANNEL=slow-log` → `storage/logs/slow-log-YYYY-MM-DD.log`; package tự khai channel nếu app chưa có (nhóm `dedicated`: tên, đường dẫn, số ngày, quyền file).
+- Context cho máy đọc trên mọi dòng slow log: `slow_log` (`query` | `summary`), `reasons`, `worst_duplicate`, `ms`, `connection`, `cli.context`, `req.route`. Dòng query chậm ở CLI mang tên job / lệnh (`[CLI][App\Jobs\X]`) thay vì `[CLI]` trơn.
+- Dòng nhóm query luôn tách `xN` khỏi số ms (`%5s %7sms`); định dạng cũ dính thành `x10000100000ms` khi số lớn.
+- **Sửa lỗi bảo mật:** danh sách host (`/api/hosts`, `window.LogViewer` ở trang chính) không còn mang `auth` / `headers` — trước đây ai xem được Log Viewer cũng đọc được shared secret trong mã nguồn trang. Credential chỉ đọc qua `Support\HostCredentials`; forward API tự làm qua `Support\RemoteHttp` (timeout `timeout.forward`, chép `Retry-After`).
 - Yêu cầu PHP 8.2+ (Laravel 11 vốn đã cần), thêm `illuminate/database`.
 
 ## v1.0.0 — 2026-09-10

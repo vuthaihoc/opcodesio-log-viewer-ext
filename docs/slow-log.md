@@ -33,7 +33,29 @@ Listener chỉ gắn ở các môi trường trong `environments` (mặc định
 Không cần đăng ký provider: `LogViewerRemoteServiceProvider` tự register
 `SlowLogServiceProvider`.
 
-### 2. Bật tắt từng phần
+### 2. Ghi ra channel riêng (nên làm)
+
+```
+SLOW_LOG_CHANNEL=slow-log
+```
+
+Package tự khai channel `slow-log` (driver daily → `storage/logs/slow-log-YYYY-MM-DD.log`,
+14 ngày) nếu app chưa có channel cùng tên; app đã khai thì giữ nguyên của app. Tách file riêng
+thì đọc nhanh hơn hẳn (log chung có thể vài trăm MB/ngày), và về sau cấp quyền đọc cho công cụ
+theo từng channel được.
+
+Đổi tên, đường dẫn, số ngày, quyền file ở nhóm `dedicated`:
+
+```php
+'dedicated' => [
+    'permission' => 0666, // web (www-data) và CLI (user deploy) cùng ghi một file
+],
+```
+
+Key thiếu trong nhóm lấy mặc định trong code. `channel` vẫn nhận tên một channel bất kỳ app đã
+khai; null = kênh mặc định.
+
+### 3. Bật tắt từng phần
 
 | Phần | Key | Env | Mặc định | Khi nào tắt |
 |---|---|---|---|---|
@@ -50,7 +72,7 @@ App **không có** Livewire hay Debugbar thì không phải tắt gì: tầng Li
 Gói vendor bị lọc khỏi trace khai ở `trace.skip_vendors` (mặc định `laravel/framework`,
 `livewire/livewire`, `barryvdh/laravel-debugbar`). Frame trong chính package luôn bị lọc.
 
-### 3. (Tuỳ chọn) Context request cho mọi dòng log
+### 4. (Tuỳ chọn) Context request cho mọi dòng log
 
 Logger tự gắn `req.url` và `req.referer` (đã che, xem [URL](#url-trong-nhãn-context)) vào
 context của dòng log nó ghi. App nào muốn **mọi** dòng log của request đều có hai key này
@@ -96,12 +118,34 @@ trắng thừa) kèm tên connection, sắp xếp theo số lần lặp giảm d
 ```
 [WEB][1.2.3.4][https://.../my/profile] Quá nhiều query [gt50]: 63 query + Nghi ngờ N+1: 1 query lặp 41x
   63 query / 812ms / 9 query khác nhau
-     x41   402ms [crdb] select * from vocabularies where "id" = ?
-            96ms [crdb] select * from videos where "id" in (?, ...)
+    x41     402ms [crdb] select * from vocabularies where "id" = ?
+             96ms [crdb] select * from videos where "id" in (?, ...)
 ```
 
+Cột `xN` và cột ms luôn cách nhau ít nhất một dấu cách, kể cả khi số dài hơn cột
+(`x10000  100000ms`); định dạng cũ `%4s%6s` từng dính thành `x10000100000ms`.
+
 Dòng query chậm ghi ở mức `level` (mặc định `alert`), dòng tổng kết luôn là `warning`.
-Job và command có nhãn `[CLI][tên job / lệnh]`.
+Job và command có nhãn `[CLI][tên job / lệnh]` — cả dòng query chậm: tên được gắn từ
+`JobProcessing` / `CommandStarting`, job ưu tiên hơn command (`queue:work` chạy job nào thì
+ra tên job đó).
+
+### Context cho máy đọc
+
+Phần chữ để người đọc; công cụ (bộ đọc của agent) đọc context JSON ở cuối dòng:
+
+| Key | Có ở | Ý nghĩa |
+|---|---|---|
+| `slow_log` | cả hai | `query` (một query chậm) hoặc `summary` (tổng kết context) |
+| `ms`, `connection` | query | thời gian và connection của query chậm |
+| `reasons` | summary | mã lý do: `total`, `total_ms`, `duplicate` |
+| `total`, `total_ms`, `total_class`, `unique_queries`, `worst_duplicate` | summary | số liệu context |
+| `cli.context` | job / command | tên job hoặc lệnh |
+| `req.url`, `req.referer` | web | URL đã che (xem dưới) |
+| `req.route` | web | URI template của route (`/video/{id}/{slug?}`) — gom theo trang không phải đoán từ URL |
+
+Đổi định dạng thì đổi cả parser của agent; app dùng package nên có test khớp format.
+Request Livewire đều là `/livewire/update`: trang thật nằm ở `req.referer`.
 
 ## Đọc log
 

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote\Console;
 
+use HocVT\LogViewerRemote\Support\RemoteHttp;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Opcodes\LogViewer\Facades\LogViewer;
 use Opcodes\LogViewer\Host;
 
@@ -51,15 +51,7 @@ class CheckHostsCommand extends Command
         $started = microtime(true);
 
         try {
-            $request = Http::withHeaders($host->headers ?? [])->acceptJson()->timeout(10);
-
-            if (! $host->verifyServerCertificate) {
-                $request = $request->withoutVerifying();
-            }
-
-            $token = $host->auth['token'] ?? null;
-
-            $response = ($token ? $request->withToken($token) : $request)->get("{$host->host}/api/hosts");
+            $response = RemoteHttp::client($host, 10)->acceptJson()->get("{$host->host}/api/hosts");
 
             $result = match (true) {
                 $response->successful() && is_array($response->json()) => 'OK',

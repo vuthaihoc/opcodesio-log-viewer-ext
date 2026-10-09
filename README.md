@@ -130,6 +130,16 @@ Tài liệu đầy đủ (tích hợp, ngưỡng, cách che dữ liệu, đọc 
 
 ## Những chỗ dễ làm hỏng khi sửa
 
+- **Host trả ra ngoài không có credential.** Vendor đưa nguyên `LogViewer::getHosts()` vào
+  `window.LogViewer` và trả cả `auth` ở `/api/hosts` — ai xem được Log Viewer cũng đọc được
+  shared secret trong mã nguồn trang. Package bỏ `auth` / `headers` qua
+  `LogViewer::resolveHostsUsing()`; credential thật chỉ đọc qua `Support\HostCredentials`
+  (thẳng từ `config('log-viewer.hosts')`), gắn vào request qua `Support\RemoteHttp`. Vendor chỉ
+  giữ **một** resolver: app tự gọi `resolveHostsUsing()` là ghi đè mất bản vá này.
+- **Forward tự làm, không gọi vendor.** `ForwardRequestToHost` không gọi `parent::handle()` vì
+  bản vendor đọc credential từ `$host->auth` (đã rỗng). Đường forward giữ như vendor (URL, header
+  `X-Forwarded-*`, không gửi body), thêm timeout `timeout.forward` và chép `Retry-After`.
+
 - **Route nạp ở `register()`, không ở `boot()`.** Package gốc đăng ký route bắt-tất
   `log-viewer/{view?}` (`where '.*'`) trong `boot()`; mọi route dưới `/log-viewer` khai
   sau nó đều bị nuốt.

@@ -8,10 +8,13 @@ use HocVT\LogViewerRemote\Console\CheckHostsCommand;
 use HocVT\LogViewerRemote\Console\GenerateSecretCommand;
 use HocVT\LogViewerRemote\Http\ForwardRequestToHost;
 use HocVT\LogViewerRemote\SlowLog\SlowLogServiceProvider;
+use HocVT\LogViewerRemote\Support\HostCredentials;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Opcodes\LogViewer\Facades\LogViewer;
+use Opcodes\LogViewer\Host;
+use Opcodes\LogViewer\HostCollection;
 use Opcodes\LogViewer\Http\Middleware\ForwardRequestToHostMiddleware;
 
 /**
@@ -21,6 +24,7 @@ use Opcodes\LogViewer\Http\Middleware\ForwardRequestToHostMiddleware;
  *    dùng thật thì hỏi Gate `viewLogViewer` — project định nghĩa, mặc định chỉ mở ở local.
  * 2. Tải file log của host ở xa qua host đang xem.
  * 3. Khai hosts bằng env, mặc định api_stateful_domains theo APP_URL.
+ *    Host trả ra ngoài (trang chính, /api/hosts) không mang credential — xem HostCredentials.
  * 4. Slow query log (SlowLogServiceProvider, mặc định tắt) — xem docs/slow-log.md.
  */
 class LogViewerRemoteServiceProvider extends ServiceProvider
@@ -54,6 +58,7 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
         $this->mergeHostsFromEnv();
         $this->defaultStatefulDomains();
         $this->defaultGate();
+        $this->hideHostCredentials();
 
         LogViewer::auth(fn (Request $request): bool => $this->bearerMatchesSharedSecret($request)
             || $this->userCanView($request));
@@ -156,6 +161,22 @@ class LogViewerRemoteServiceProvider extends ServiceProvider
         if (! Gate::has('viewLogViewer')) {
             Gate::define('viewLogViewer', fn (mixed $user = null): bool => $this->app->isLocal());
         }
+    }
+
+    /**
+     * Vendor đưa nguyên Host (cả `auth`, `headers`) vào `window.LogViewer` và `/api/hosts`.
+     * Bỏ đi ở đây; ai cần credential thật thì đọc qua HostCredentials.
+     *
+     * Vendor chỉ giữ MỘT resolver: app tự gọi `LogViewer::resolveHostsUsing()` sau đó là
+     * ghi đè mất bản vá này.
+     */
+    private function hideHostCredentials(): void
+    {
+        LogViewer::resolveHostsUsing(
+            static fn (HostCollection $hosts): HostCollection => $hosts->map(
+                static fn (Host $host): Host => HostCredentials::strip($host)
+            )
+        );
     }
 
     private function bearerMatchesSharedSecret(Request $request): bool

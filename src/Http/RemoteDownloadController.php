@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace HocVT\LogViewerRemote\Http;
 
+use HocVT\LogViewerRemote\Support\RemoteHttp;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Http;
 use Opcodes\LogViewer\Facades\LogViewer;
 use Opcodes\LogViewer\Host;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -105,24 +105,7 @@ class RemoteDownloadController
 
     private function client(Host $host): PendingRequest
     {
-        $request = Http::withHeaders($host->headers ?? [])
-            ->timeout((int) config('log-viewer-remote.timeout.request', 15));
-
-        if (! $host->verifyServerCertificate) {
-            $request = $request->withoutVerifying();
-        }
-
-        $auth = $host->auth ?? [];
-
-        if (isset($auth['token'])) {
-            return $request->withToken($auth['token']);
-        }
-
-        if (isset($auth['username'], $auth['password'])) {
-            return $request->withBasicAuth($auth['username'], $auth['password']);
-        }
-
-        return $request;
+        return RemoteHttp::client($host, (int) config('log-viewer-remote.timeout.request', 15));
     }
 
     private function abortUnlessSuccessful(ClientResponse $response, Host $host): void

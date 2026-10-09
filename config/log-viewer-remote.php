@@ -32,8 +32,9 @@ return [
     |--------------------------------------------------------------------------
     */
     'timeout' => [
-        'request' => 15,
-        'download' => 300,
+        'request' => 15,    // xin link tải, lệnh check
+        'download' => 300,  // stream file log về
+        'forward' => 30,    // proxy API Log Viewer (?host=…) — bằng mặc định của vendor
     ],
 
 ];
