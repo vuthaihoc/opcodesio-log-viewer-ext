@@ -39,9 +39,15 @@ class AgentFilesCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->line(sprintf('# %s · channel cho phép: %s · giờ trong log: %s', $client->name(), implode(', ', (array) $payload['channels']), $payload['log_timezone'] ?? '?'));
-        $this->table(['name', 'channel', 'date', 'MB', 'modified_at'], array_map(
-            static fn (array $f) => [$f['name'], $f['channel'], $f['date'] ?? '', round($f['size'] / 1048576, 2), $f['modified_at']],
+        $this->line(sprintf(
+            '# %s · %s: %s · giờ trong log: %s',
+            $client->name(),
+            ($payload['restricted'] ?? true) ? 'channel cho phép (agent token)' : 'không giới hạn channel',
+            implode(', ', (array) $payload['channels']),
+            $payload['log_timezone'] ?? '?',
+        ));
+        $this->table(['name', 'channel', 'type', 'date', 'MB', 'modified_at'], array_map(
+            static fn (array $f) => [$f['name'], $f['channel'] ?? '', $f['type'] ?? '', $f['date'] ?? '', round($f['size'] / 1048576, 2), $f['modified_at']],
             $files,
         ));
 

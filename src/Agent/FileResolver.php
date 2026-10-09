@@ -76,6 +76,8 @@ final class FileResolver
                 date: $match['date'] ?? null,
                 size: (int) @filesize($file->path),
                 mtime: (int) @filemtime($file->path),
+                type: (string) $file->type()->value,
+                identifier: $file->identifier,
             );
         }
 
@@ -93,7 +95,7 @@ final class FileResolver
     public function select(?string $names, ?string $channel, ?string $fromDate = null, ?string $toDate = null): array
     {
         if ($names !== null && trim($names) !== '') {
-            return $this->byName($names);
+            return self::onlyReadable($this->byName($names), explicit: true);
         }
 
         $channel = $channel !== null && $channel !== '' ? $channel : AgentConfig::slowLogChannel();
@@ -114,7 +116,35 @@ final class FileResolver
             throw new AgentException(404, "Channel `{$channel}` không có file nào trong khoảng đã chọn.", ['channel' => $channel, 'from_date' => $fromDate, 'to_date' => $toDate]);
         }
 
-        return $files;
+        return self::onlyReadable($files, explicit: false);
+    }
+
+    /**
+     * Bộ đọc của agent chỉ hiểu log Laravel; loại khác (Log Viewer nhận diện: nginx, php-fpm…)
+     * đọc vào sẽ ra 0 entry mà không báo gì. Chọn đích danh thì báo lỗi; chọn theo channel thì
+     * bỏ qua, chỉ báo khi không còn file nào.
+     *
+     * @param  list<AgentFile>  $files
+     * @return list<AgentFile>
+     */
+    private static function onlyReadable(array $files, bool $explicit): array
+    {
+        $other = array_values(array_filter($files, static fn (AgentFile $f): bool => ! $f->readable()));
+
+        if ($other === []) {
+            return $files;
+        }
+
+        $readable = array_values(array_filter($files, static fn (AgentFile $f): bool => $f->readable()));
+
+        if ($explicit || $readable === []) {
+            throw new AgentException(422, 'Bộ đọc của agent chỉ hiểu log Laravel; không đọc được: '.implode(', ', array_map(
+                static fn (AgentFile $f): string => "{$f->name} ({$f->type})",
+                $other,
+            )).'. Xem file đó trong UI Log Viewer.', ['readable_type' => AgentFile::READABLE_TYPE]);
+        }
+
+        return $readable;
     }
 
     /** @return list<AgentFile> */

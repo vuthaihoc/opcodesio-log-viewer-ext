@@ -34,7 +34,7 @@ final class Commands implements Aggregator
         }
 
         $key = $record->command ?? '(không tên)';
-        $once = ['sample' => $entry->file.'@'.$entry->offset];
+        $once = ['first' => $entry->datetime, 'sample' => $entry->file.'@'.$entry->offset];
 
         if ($record->kind === 'summary') {
             $this->tally->add(

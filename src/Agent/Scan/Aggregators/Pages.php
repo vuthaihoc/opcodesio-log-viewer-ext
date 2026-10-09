@@ -38,7 +38,7 @@ final class Pages implements Aggregator
             return;
         }
 
-        $once = ['sample' => $entry->file.'@'.$entry->offset];
+        $once = ['first' => $entry->datetime, 'sample' => $entry->file.'@'.$entry->offset];
 
         if ($record->kind === 'summary') {
             $this->tally->add(

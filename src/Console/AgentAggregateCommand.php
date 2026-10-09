@@ -34,6 +34,7 @@ class AgentAggregateCommand extends Command
         {--group= : thêm bảng group: gom theo regex; nhóm tên key = khoá, nhóm tên sum = số cộng dồn}
         {--in=first : so --match / --contains / --group trên dòng đầu (first) hay cả entry (text, chậm hơn)}
         {--top=20 : số hàng mỗi bảng}
+        {--links : thêm cột ui_url — link mở entry mẫu trong UI Log Viewer}
         {--json : in JSON đầy đủ thay vì bảng}';
 
     protected $description = 'Gom số liệu log ngay trên host: level, thông điệp (mọi entry); trang, query thừa, command, query chậm (chỉ slow log); gom theo regex';
@@ -97,7 +98,7 @@ class AgentAggregateCommand extends Command
 
         $this->output->write($this->option('json')
             ? json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n"
-            : AgentOutput::aggregate($payload, $client->name(), ['rounds' => $rounds, 'elapsed_ms' => $elapsed]));
+            : AgentOutput::aggregate($payload, $client->name(), ['rounds' => $rounds, 'elapsed_ms' => $elapsed], (bool) $this->option('links')));
 
         return ($payload['complete'] ?? true) ? self::SUCCESS : self::FAILURE;
     }

@@ -96,6 +96,7 @@ final class AgentService
         $cacheKey = $state === null && $this->allClosed($files)
             ? 'lvr:agent:aggregate:'.sha1((string) json_encode([
                 LogViewerRemote::VERSION,
+                url('/'), // ui_url dựng theo host của request
                 array_map(static fn (AgentFile $f) => [$f->name, $f->size, $f->mtime], $files),
                 $window->toArray(), $query, $top, AgentConfig::get('page_key'), AgentConfig::get('url_groups'),
             ]))
@@ -126,7 +127,7 @@ final class AgentService
             'cursor' => $result->complete ? null : CursorStore::put((array) $result->cursor, $fingerprint),
             'window' => $window->toArray(),
             'stats' => $result->stats(),
-            'results' => $result->complete || $partial ? $result->results($top) : null,
+            'results' => $result->complete || $partial ? (new UiLinks($files))->addTo($result->results($top)) : null,
         ];
 
         if ($cacheKey !== null && $result->complete) {
@@ -155,7 +156,7 @@ final class AgentService
             $reader = new EntryReader($file->path, $file->name, AgentConfig::int('head_bytes'), AgentConfig::int('tail_bytes'));
 
             foreach ($reader->read($offset, Window::all(), new Budget(5)) as $entry) {
-                return ['entries' => [$this->present($entry, $maxBytes)], 'next' => null, 'complete' => true];
+                return ['entries' => [$this->present($entry, $maxBytes, new UiLinks([$file]))], 'next' => null, 'complete' => true];
             }
 
             throw new AgentException(404, "Không có entry ở {$at}.");
@@ -167,7 +168,9 @@ final class AgentService
         // `cursor` = `next` của lượt trước: đọc tiếp TỪ vị trí đó (tính cả entry tại đó).
         $resume = ($cursor = self::str($params, 'cursor')) !== null ? $this->position($cursor, $resolver) : null;
 
-        return ScanSlots::run(function () use ($files, $window, $match, $limit, $maxBytes, $resume): array {
+        $links = new UiLinks($files);
+
+        return ScanSlots::run(function () use ($files, $window, $match, $limit, $maxBytes, $resume, $links): array {
             $scanWindow = $window->scanWindow();
             $budget = new Budget((float) AgentConfig::get('max_seconds'));
             $found = [];
@@ -195,7 +198,7 @@ final class AgentService
                         return $this->entriesPage($found, $entry->file.'@'.$entry->offset, $window);
                     }
 
-                    $found[] = $this->present($entry, $maxBytes);
+                    $found[] = $this->present($entry, $maxBytes, $links);
                 }
 
                 if ($reader->stoppedByBudget()) {
@@ -271,7 +274,7 @@ final class AgentService
     }
 
     /** @return array<string, mixed> */
-    private function present(Entry $entry, int $maxBytes): array
+    private function present(Entry $entry, int $maxBytes, UiLinks $links): array
     {
         $text = Normalizer::maskSecrets($entry->text);
         $cut = strlen($text) > $maxBytes;
@@ -283,6 +286,7 @@ final class AgentService
             'length' => $entry->length,
             'truncated' => $entry->truncated || $cut,
             'text' => mb_scrub($cut ? substr($text, 0, $maxBytes).'…' : $text, 'UTF-8'),
+            'ui_url' => $links->for($entry->file.'@'.$entry->offset, $entry->datetime),
         ];
     }
 

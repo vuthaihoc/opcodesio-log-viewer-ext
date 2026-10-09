@@ -11,13 +11,14 @@ namespace HocVT\LogViewerRemote\Console;
 final class AgentOutput
 {
     /** Trường không phải số liệu, đứng cuối bảng. */
-    private const TRAILING = ['level', 'connection', 'scope', 'first', 'last', 'sample'];
+    private const TRAILING = ['level', 'connection', 'scope', 'first', 'last', 'sample', 'ui_url'];
 
     /**
      * @param  array<string, mixed>  $payload
      * @param  array{rounds: int, elapsed_ms: int}  $run
+     * @param  bool  $links  hiện cột `ui_url` (link mở entry mẫu trong UI Log Viewer)
      */
-    public static function aggregate(array $payload, string $host, array $run): string
+    public static function aggregate(array $payload, string $host, array $run, bool $links = false): string
     {
         $stats = (array) ($payload['stats'] ?? []);
         $window = (array) ($payload['window'] ?? []);
@@ -45,7 +46,7 @@ final class AgentOutput
 
         foreach ((array) ($payload['results'] ?? []) as $name => $result) {
             $lines[] = '';
-            $lines = array_merge($lines, $name === 'levels' ? self::levels((array) $result) : self::tally((string) $name, (array) $result));
+            $lines = array_merge($lines, $name === 'levels' ? self::levels((array) $result) : self::tally((string) $name, (array) $result, $links));
         }
 
         return implode("\n", $lines)."\n";
@@ -58,6 +59,11 @@ final class AgentOutput
 
         foreach ((array) ($payload['entries'] ?? []) as $entry) {
             $lines[] = sprintf('## %s · %s · %s · %d byte%s', $entry['at'], $entry['datetime'], $entry['level'], $entry['length'], $entry['truncated'] ? ' (đã cắt)' : '');
+
+            if (($entry['ui_url'] ?? null) !== null) {
+                $lines[] = 'UI: '.$entry['ui_url'];
+            }
+
             $lines[] = '```';
             $lines[] = rtrim((string) $entry['text']);
             $lines[] = '```';
@@ -95,7 +101,7 @@ final class AgentOutput
      * @param  array<string, mixed>  $result
      * @return list<string>
      */
-    private static function tally(string $name, array $result): array
+    private static function tally(string $name, array $result, bool $links): array
     {
         $rows = (array) ($result['rows'] ?? []);
         $slowLogOnly = ($result['applies_to'] ?? 'all') === 'slow_log';
@@ -116,7 +122,7 @@ final class AgentOutput
 
         foreach ($rows as $row) {
             foreach (array_keys($row) as $column) {
-                if (in_array($column, $columns, true) || in_array($column, $trailing, true)) {
+                if (in_array($column, $columns, true) || in_array($column, $trailing, true) || ($column === 'ui_url' && ! $links)) {
                     continue;
                 }
 

@@ -55,6 +55,9 @@ Câu hỏi riêng → tự gửi regex:
 … --in=text --group='App\\Jobs\\(?<key>\w+)' --only=group
 ```
 
+Đưa người dùng link xem tận mắt: `ui_url` (thêm `--links` cho `aggregate`, `entries` luôn in `UI:`).
+Bộ đọc chỉ hiểu log Laravel (cột `type` của lệnh `files`); file nginx / php-fpm… trả 422 — xem bằng UI.
+
 Đọc trọn một entry: lấy cột `sample` (`file@offset`):
 
 ```bash

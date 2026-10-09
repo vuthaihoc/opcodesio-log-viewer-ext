@@ -73,7 +73,7 @@ Cột **Agent** của lệnh check có thể hiện các giá trị sau:
 
 | Lệnh | Việc |
 |---|---|
-| `log-viewer-remote:files --host=m1` | File được đọc, channel, ngày, dung lượng |
+| `log-viewer-remote:files --host=m1` | File được đọc, channel, loại log, ngày, dung lượng |
 | `log-viewer-remote:aggregate --host=m1 …` | Gom số liệu (6 bảng), tự đi theo cursor tới khi xong |
 | `log-viewer-remote:entries --host=m1 …` | Đọc trọn entry theo vị trí hoặc theo bộ lọc |
 
@@ -121,11 +121,23 @@ Kết quả luôn ghi lại `window.from` / `window.to` theo giờ log để đ�
 | `commands` | chỉ slow log CLI | tên job / lệnh | runs, queries, ms, max_ms, slow_queries, slow_ms |
 | `slow_queries` | chỉ dòng query chậm | SQL đã chuẩn hoá | n, max_ms, first, last, pages |
 
-`sample` = `file@offset` của lần gặp đầu. Đọc trọn entry đó bằng:
+`sample` = `file@offset` của lần gặp đầu, `first` là thời điểm của nó. Đọc trọn entry đó bằng:
 
 ```bash
 php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@1124892
 ```
+
+**Link mở trong UI.** Mỗi hàng có `sample` (và mỗi entry của `entries`) mang `ui_url`: link mở
+file đó trong UI Log Viewer, ô tìm kiếm điền sẵn đúng giây của entry, để đưa cho người xem.
+Lệnh `aggregate` in cột này khi có `--links`; `entries` luôn in dòng `UI:`.
+- UI của vendor nhận `?file=` + `?query=`, và tìm bằng regex trên cả chữ của entry (kể cả header).
+  Lọc theo giây ra entry đó, cùng vài entry cùng giây.
+- Không dùng `query=log-index:N` (nhảy thẳng tới entry thứ N). Vendor đếm entry bằng regex
+  riêng, lệch với bộ đọc của agent một dòng là link trỏ sai entry.
+- `file` là identifier của vendor, tính trong tiến trình web nên khớp với UI. Lệnh chạy
+  in-process ở CLI dùng tên file, vì identifier tính ở CLI khác web; vendor tra theo tên khi
+  không thấy identifier.
+- Đi qua forward thì link được viết lại về UI của host đang xem, kèm `host=<id>`.
 
 ## Bảy thao tác hay làm
 
@@ -145,6 +157,19 @@ php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@112
 - `--limit`, `--max-bytes`.
 
 Còn kết quả thì lệnh in sẵn `--cursor=…` để đọc tiếp.
+
+## Chỉ đọc log Laravel
+
+Bộ đọc của agent hiểu đúng một định dạng: log Laravel. Loại của từng file lấy từ Log Viewer
+(`LogFile::type()`), là cùng phần nhận diện mà UI dùng: theo tên file, rồi theo dòng đầu.
+Lệnh `files` (cột `type`) cho thấy loại của từng file.
+
+- Chọn đích danh file loại khác (nginx, apache, php-fpm, horizon, postgres, redis, supervisor…)
+  thì trả 422 kèm `readable_type: laravel`. Xem những file đó trong UI.
+- Chọn theo channel thì file loại khác bị bỏ qua. Chỉ báo lỗi khi không còn file nào.
+- Với agent token, chuyện này hầu như không gặp, vì channel của Laravel ghi ra log Laravel.
+  Nó chủ yếu chặn shared secret chọn nhầm file nginx mà Log Viewer có liệt kê: không có
+  kiểm tra này thì kết quả ra 0 entry mà không báo gì.
 
 ## Tự lọc và gom theo regex
 
@@ -226,13 +251,14 @@ Endpoint nào cũng nhận thêm `host=<id>` để forward (xem trên).
 | Action | Tham số | Trả |
 |---|---|---|
 | `ping` | — | `ok, version, auth (agent\|shared), restricted, channels, aggregators, log_timezone, input_timezone, limits` |
-| `files` | — | `restricted, channels, log_timezone, files[{name, channel, date, size, modified_at}]` |
+| `files` | — | `restricted, channels, log_timezone, files[{name, channel, type, date, size, modified_at}]` |
 | `aggregate` | `files` \| `channel`, `date`, `from`, `to`, `only`, `top` (1–200), `match`, `contains`, `level`, `in`, `group`, `cursor`, `partial=1` | `complete, cursor, cached, window, stats, results` |
-| `entries` | `at=file@offset` \| (`files` \| `channel`, `date`, `from`, `to`, `contains`, `regex`, `level`, `limit`, `max_bytes`, `cursor`) | `entries[{at, datetime, level, length, truncated, text}], next, complete` |
+| `entries` | `at=file@offset` \| (`files` \| `channel`, `date`, `from`, `to`, `contains`, `regex`, `level`, `limit`, `max_bytes`, `cursor`) | `entries[{at, datetime, level, length, truncated, text, ui_url}], next, complete` |
 
 `aggregate` chỉ kèm `results` khi `complete` (hoặc `partial=1`).
 
-Mỗi bảng trong `results` có `applies_to`: `all` hoặc `slow_log`.
+Mỗi bảng trong `results` có `applies_to`: `all` hoặc `slow_log`. Hàng có `sample` thì có thêm
+`first` và `ui_url`.
 
 `stats` gồm: `entries` (sau lọc), `scanned_entries` (trước lọc), `scanned_bytes`, `total_bytes`, `percent_scanned`, `elapsed_ms`, `peak_memory_mb`, `files[{name, size, reached}]`.
 
@@ -243,7 +269,7 @@ Lỗi trả về dạng `{"error": "…", …}`:
 | 403 | Token sai, hoặc (agent token) file / channel không được phép, kèm `allowed_channels` |
 | 404 | File / channel không có, channel không có file trong khoảng đã chọn, hoặc `host` không có |
 | 410 | Cursor hết hạn hoặc đã dùng |
-| 422 | Tham số sai: thời gian, `only`, regex (`match`, `group`, `regex`), cursor của bộ tham số khác |
+| 422 | Tham số sai: thời gian, `only`, regex (`match`, `group`, `regex`), cursor của bộ tham số khác; file không phải log Laravel (`readable_type`) |
 | 429 | Host đủ lượt quét (`retry_after`) |
 | 502 | Forward: không kết nối được host đích, hoặc host đích trả HTML |
 

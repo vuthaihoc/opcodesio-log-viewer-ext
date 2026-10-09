@@ -46,7 +46,7 @@ final class SqlWaste implements Aggregator
                 $this->normalizer->sql($group['sql']),
                 sum: ['waste' => $waste, 'count' => $group['count'], 'ms' => $group['ms'], 'contexts' => 1],
                 max: ['max_repeat' => $group['count']],
-                once: ['connection' => $group['connection'], 'sample' => $entry->file.'@'.$entry->offset],
+                once: ['connection' => $group['connection'], 'first' => $entry->datetime, 'sample' => $entry->file.'@'.$entry->offset],
                 spread: $waste > 0 ? ['pages' => [$where, $waste]] : [],
             );
         }

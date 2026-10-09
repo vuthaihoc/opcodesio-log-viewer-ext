@@ -12,6 +12,8 @@
 - Trần `max_seconds` mỗi request + cursor giữ trạng thái ở server (quét chia nhỏ ra đúng kết quả quét một lượt); giới hạn lượt quét đồng thời (429 + Retry-After); cache kết quả file đã đóng.
 - `from` / `to` / `date` theo giờ người hỏi (`log-viewer.timezone`), đổi sang giờ của log; tự chọn file daily trong khoảng.
 - `entries`: đọc trọn entry theo `file@offset` hoặc lọc contains / regex / level; che email và token.
+- Dùng lại nhận diện loại log của Log Viewer (`LogFile::type()`): `files` trả `type`; agent chỉ đọc file `laravel`, chọn đích danh file loại khác → 422.
+- `ui_url` cho mỗi `sample` và mỗi entry: mở file trong UI Log Viewer với ô tìm kiếm điền sẵn đúng giây của entry (identifier của vendor; CLI dùng tên file); forward viết lại về UI của host đang xem kèm `host=`.
 - Lệnh `log-viewer-remote:aggregate`, `:entries`, `:files` (in-process cho máy này hoặc HTTP tới host xa, tự đi theo cursor); `:check` thêm cột Agent; `:secret --agent`.
 - Skill cho Claude Code: `vendor:publish --tag=log-viewer-remote-skill`.
 - Config: nhóm `timeout`, `agent`, `trace`, `dedicated` được gộp sâu thêm một cấp — app chỉ ghi key mình đổi mà không mất key đọc env của package.
