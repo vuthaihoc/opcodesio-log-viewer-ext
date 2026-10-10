@@ -41,7 +41,7 @@ php artisan log-viewer-remote:aggregate --host=<host> --channel=<channel> --date
 | Câu hỏi | Bảng |
 |---|---|
 | Lỗi gì, bao nhiêu | `levels`, `messages` (channel log lỗi) |
-| Trang nào chậm / nhiều query | `pages` |
+| Trang nào chậm / nhiều query / response lớn | `pages` (`slow_requests`, `big_responses`, `request_db_ms` / `request_ms` = phần DB, nếu app bật luật request) |
 | N+1, query thừa | `sql_waste` (`waste` = Σ(xN−1), cột `pages` = nơi sinh ra) |
 | Job / lệnh nào tốn DB | `commands` |
 | Query chậm nào hay gặp | `slow_queries` |

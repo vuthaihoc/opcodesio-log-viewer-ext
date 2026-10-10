@@ -79,7 +79,48 @@ no-op, bản vá Debugbar không thấy binding `debugbar` nên không gắn lis
 Gói vendor bị lọc khỏi trace khai ở `trace.skip_vendors` (mặc định `laravel/framework`,
 `livewire/livewire`, `barryvdh/laravel-debugbar`). Frame trong chính package luôn bị lọc.
 
-### 4. (Tuỳ chọn) Context request cho mọi dòng log
+### 4. (Tuỳ chọn) Request chậm / response lớn theo prefix
+
+Hai luật độc lập, mỗi luật một danh sách prefix + một ngưỡng; danh sách rỗng = tắt (mặc định):
+
+```
+SLOW_LOG_REQUEST_TIME_PREFIXES="graphql,api,livewire-*"   # request xử lý quá lâu
+SLOW_LOG_REQUEST_TIME=2000                                  # ms (mặc định 2000)
+
+SLOW_LOG_RESPONSE_SIZE_PREFIXES="graphql,api"               # response quá lớn
+SLOW_LOG_RESPONSE_SIZE=524288                               # byte (mặc định 512 KB)
+```
+
+Cách viết prefix (path không có `/` đầu):
+
+| Viết | Khớp |
+|---|---|
+| `api` | `api` và `api/…`, theo đoạn path — không khớp `apix` |
+| `learn/*`, `livewire-*` | so như `Str::is` (`*` khớp cả `/`). Livewire 4 gọi `livewire-<hash>/update` |
+| `*` | mọi request |
+| `graphql:3000` | ngưỡng riêng cho prefix đó |
+| `graphql/upload:0` | loại trừ — luật đầu tiên khớp thắng, nên đặt trước luật rộng hơn (`graphql/upload:0,graphql`) |
+
+Trong config là nhóm `slow_log.requests` (`time.prefixes`, `time.threshold`, `size.prefixes`,
+`size.threshold`, `level` — mặc định `warning`); `prefixes` nhận chuỗi hoặc mảng.
+
+Một request vượt cả hai luật thì ghi **một** dòng, kèm số query và thời gian DB của chính
+request đó, để biết chậm vì DB hay vì việc khác:
+
+```
+[WEB][1.2.3.4][https://…/graphql] Request chậm 2531ms > 2000ms + Response lớn 812 KB > 512 KB
+  POST 200 · 2531ms · 812 KB · 63 query / 812ms DB
+```
+
+Đo lúc `RequestHandled` (đã có response, chưa gửi đi):
+- **Thời gian** tính từ `REQUEST_TIME_FLOAT` (lúc PHP nhận request): gồm bootstrap, middleware,
+  controller; không gồm lúc gửi response đi và `terminate`.
+- **Kích thước** là body app trả ra, **trước** khi nginx gzip. File tải về tính theo kích thước
+  file. `StreamedResponse` không biết trước kích thước nên bỏ qua, trừ khi có `Content-Length`.
+
+Cần `enabled` + `environments` như phần còn lại của slow log.
+
+### 5. (Tuỳ chọn) Context request cho mọi dòng log
 
 Logger tự gắn `req.url` và `req.referer` (đã che, xem [URL](#url-trong-nhãn-context)) vào
 context của dòng log nó ghi. App nào muốn **mọi** dòng log của request đều có hai key này
@@ -143,9 +184,10 @@ Phần chữ để người đọc; công cụ (bộ đọc của agent) đọc 
 
 | Key | Có ở | Ý nghĩa |
 |---|---|---|
-| `slow_log` | cả hai | `query` (một query chậm) hoặc `summary` (tổng kết context) |
+| `slow_log` | mọi dòng | `query` (một query chậm), `summary` (tổng kết context) hoặc `request` (request chậm / response lớn) |
 | `ms`, `connection` | query | thời gian và connection của query chậm |
-| `reasons` | summary | mã lý do: `total`, `total_ms`, `duplicate` |
+| `reasons` | summary, request | mã lý do — summary: `total`, `total_ms`, `duplicate`; request: `time`, `size` |
+| `ms`, `bytes`, `status`, `method`, `queries`, `query_ms` | request | thời gian xử lý, kích thước body, mã HTTP, method, số query + ms DB của request |
 | `total`, `total_ms`, `total_class`, `unique_queries`, `worst_duplicate` | summary | số liệu context |
 | `cli.context` | job / command | tên job hoặc lệnh |
 | `req.url`, `req.referer` | web | URL đã che (xem dưới) |
@@ -156,8 +198,8 @@ Request Livewire đều là `/livewire/update`: trang thật nằm ở `req.refe
 
 ## Đọc log
 
-- Lọc trong Log Viewer: `Nghi ngờ N+1`, `Quá nhiều query`, `Tổng thời gian query`, hoặc
-  theo `req.url` trong context.
+- Lọc trong Log Viewer: `Nghi ngờ N+1`, `Quá nhiều query`, `Tổng thời gian query`,
+  `Request chậm`, `Response lớn`, hoặc theo `req.url` trong context.
 - Dòng query chậm là **đuôi phân phối đã bị cắt** ở `time_to_log`: đếm **số lượt**, đừng lấy
   trung bình latency. Latency "phẳng" quanh ngưỡng chỉ là mép ngưỡng; số lượt tăng vọt trong
   khi latency đứng yên là bão hoà do khối lượng (N+1, thiếu cache), không phải query plan tồi.

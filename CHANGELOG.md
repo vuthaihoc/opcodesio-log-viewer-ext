@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.0 — chưa phát hành
+
+- **Request chậm / response lớn theo prefix** (`SlowLog\RequestLogger`, nhóm `slow_log.requests`): hai luật độc lập — `SLOW_LOG_REQUEST_TIME_PREFIXES` + `SLOW_LOG_REQUEST_TIME` (mặc định 2000 ms), `SLOW_LOG_RESPONSE_SIZE_PREFIXES` + `SLOW_LOG_RESPONSE_SIZE` (mặc định 512 KB); prefix rỗng = tắt. Prefix theo đoạn path, `*` như Str::is, `prefix:ngưỡng` riêng, `prefix:0` loại trừ. Một dòng `slow_log: request` kèm số query + ms DB của chính request.
+- Bộ đọc của agent hiểu dòng `request`: bảng `pages` thêm `requests`, `slow_requests`, `big_responses`, `request_ms`, `request_db_ms`, `max_request_ms`, `max_bytes`; `messages` có khoá `slow request: …`.
+- `SlowLog\WebContext`: nhãn + context request dùng chung cho mọi dòng slow log.
+
 ## v1.3.0 — 2026-10-09
 
 - **Một file config `log-viewer-ext`** (`config/log-viewer-ext.php`, publish tag `log-viewer-ext-config`) thay cho `log-viewer-remote.php` + `slow-log.php`: auth / host xa ở gốc, nhóm `agent`, nhóm `slow_log`. Env giữ nguyên tên.

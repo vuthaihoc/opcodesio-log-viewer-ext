@@ -16,7 +16,10 @@ use HocVT\LogViewerRemote\Agent\Scan\Tally;
  * vào nổi top.
  *
  * - `summaries`, `queries`, `ms`: số lượt tổng kết, Σtotal, Σtotal_ms;
- * - `slow_queries`, `slow_ms`: số dòng query chậm và tổng ms của chúng.
+ * - `slow_queries`, `slow_ms`: số dòng query chậm và tổng ms của chúng;
+ * - `requests`, `slow_requests`, `big_responses`, `request_ms`, `max_request_ms`, `max_bytes`,
+ *   `request_db_ms`: từ dòng request chậm / response lớn (RequestLogger); `request_db_ms` =
+ *   phần thời gian DB trong các request đó.
  */
 final class Pages implements Aggregator
 {
@@ -24,7 +27,7 @@ final class Pages implements Aggregator
 
     public function __construct(private readonly Normalizer $normalizer, int $cap = 2000)
     {
-        $this->tally = new Tally(['queries', 'slow_queries'], $cap);
+        $this->tally = new Tally(['queries', 'slow_queries', 'requests'], $cap);
     }
 
     public function name(): string
@@ -39,6 +42,19 @@ final class Pages implements Aggregator
         }
 
         $once = ['first' => $entry->datetime, 'sample' => $entry->file.'@'.$entry->offset];
+
+        if ($record->kind === 'request') {
+            $this->tally->add(
+                $this->normalizer->page($record),
+                sum: ['requests' => 1, 'request_ms' => (float) $record->ms, 'request_db_ms' => (float) $record->totalMs]
+                    + (in_array('time', $record->reasons, true) ? ['slow_requests' => 1] : [])
+                    + (in_array('size', $record->reasons, true) ? ['big_responses' => 1] : []),
+                max: ['max_request_ms' => (float) $record->ms, 'max_bytes' => (int) $record->bytes],
+                once: $once,
+            );
+
+            return;
+        }
 
         if ($record->kind === 'summary') {
             $this->tally->add(

@@ -27,7 +27,7 @@ final class SlowLogParser
     private const TRACE_LINE = '/^  \S.*:(?:\d+|\?)$/';
 
     /** Nhãn web; URL có thể chứa `]` (query string đã urldecode) nên neo vào phần lý do phía sau. */
-    private const WEB_LABEL = '/^\[WEB\]\[([^\]]*)\]\[(.*)\](?: (?:Quá nhiều query|Tổng thời gian query|Nghi ngờ N\+1).*)?$/';
+    private const WEB_LABEL = '/^\[WEB\]\[([^\]]*)\]\[(.*)\](?: (?:Quá nhiều query|Tổng thời gian query|Nghi ngờ N\+1|Request chậm|Response lớn).*)?$/';
 
     private const CLI_LABEL = '/^\[CLI\](?:\[([^\]]*)\])?/';
 
@@ -63,16 +63,25 @@ final class SlowLogParser
         $lines[count($lines) - 1] = $this->withoutTrailingJson($lines[count($lines) - 1]);
         $kind = $context['slow_log'] ?? $this->guessKind($lines[1] ?? '');
 
-        if ($kind !== 'query' && $kind !== 'summary') {
+        if (! in_array($kind, ['query', 'summary', 'request'], true)) {
             return null;
         }
 
         $scope = str_starts_with($first, '[WEB]') ? 'WEB' : 'CLI';
         [$labelUrl, $labelCommand] = $this->label($first, $scope);
 
-        return $kind === 'query'
-            ? $this->query($scope, $lines, $context, $labelUrl, $labelCommand)
-            : $this->summary($scope, $first, $lines, $context, $labelUrl, $labelCommand);
+        return match ($kind) {
+            'query' => $this->query($scope, $lines, $context, $labelUrl, $labelCommand),
+            'summary' => $this->summary($scope, $first, $lines, $context, $labelUrl, $labelCommand),
+            'request' => $this->record('request', $scope, $context, $labelUrl, $labelCommand,
+                reasons: isset($context['reasons']) && is_array($context['reasons']) ? array_values(array_map('strval', $context['reasons'])) : [],
+                total: isset($context['queries']) ? (int) $context['queries'] : null,
+                totalMs: isset($context['query_ms']) ? (float) $context['query_ms'] : null,
+                ms: isset($context['ms']) ? (float) $context['ms'] : null,
+                bytes: isset($context['bytes']) ? (int) $context['bytes'] : null,
+                status: isset($context['status']) ? (int) $context['status'] : null,
+            ),
+        };
     }
 
     private function guessKind(string $second): ?string
@@ -175,6 +184,8 @@ final class SlowLogParser
         ?float $ms = null,
         ?string $connection = null,
         ?string $sql = null,
+        ?int $bytes = null,
+        ?int $status = null,
     ): SlowLogRecord {
         return new SlowLogRecord(
             kind: $kind,
@@ -192,6 +203,8 @@ final class SlowLogParser
             connection: $connection,
             sql: $sql,
             context: $context,
+            bytes: $bytes,
+            status: $status,
         );
     }
 

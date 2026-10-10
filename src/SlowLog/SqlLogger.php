@@ -351,9 +351,7 @@ class SqlLogger
             return '[CLI]';
         }
 
-        $request = request();
-
-        return '[WEB]['.$request->ip().']['.LoggableUrl::fromRequest($request).']';
+        return WebContext::label(request());
     }
 
     /**
@@ -367,30 +365,24 @@ class SqlLogger
     }
 
     /**
-     * URL, route và referer để lọc log theo trang; CLI/job không có. URL và referer đã che
-     * qua LoggableUrl; `req.route` là URI template của route (`/video/{id}/{slug?}`), gom
-     * theo trang mà không phải đoán từ URL.
-     * Dùng cùng key với middleware chia sẻ context request (nếu project có, gọi
-     * `Log::shareContext(['req.url' => …])`) — Laravel gộp context bằng array_merge nên
-     * hai nơi cùng ghi cũng chỉ ra một key.
+     * Context request (`req.url`, `req.route`, `req.referer` — xem WebContext); CLI / job không có.
      *
      * @return array<string, string>
      */
     protected function requestContext(): array
     {
-        if ($this->console) {
-            return [];
-        }
+        return $this->console ? [] : WebContext::context(request());
+    }
 
-        $request = request();
-
-        $route = $request->route();
-
-        return array_filter([
-            'req.url' => LoggableUrl::fromRequest($request),
-            'req.route' => $route instanceof Route ? '/'.ltrim($route->uri(), '/') : null,
-            'req.referer' => LoggableUrl::fromString($request->headers->get('referer')),
-        ], static fn (?string $value): bool => $value !== null);
+    /**
+     * Số query và tổng thời gian DB của context đang chạy (tới lúc gọi) — RequestLogger ghi
+     * kèm dòng request chậm, để biết chậm vì DB hay vì việc khác.
+     *
+     * @return array{queries: int, query_ms: float}
+     */
+    public function stats(): array
+    {
+        return ['queries' => $this->total, 'query_ms' => round($this->totalMs, 2)];
     }
 
     /**

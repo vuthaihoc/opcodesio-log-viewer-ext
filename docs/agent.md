@@ -116,7 +116,7 @@ Kết quả luôn ghi lại `window.from` / `window.to` theo giờ log để đ�
 | `levels` | **mọi entry** | — | entries, first, last, levels, scopes (WEB / CLI / other) |
 | `messages` | **mọi entry**, thông điệp đã chuẩn hoá | `LEVEL \| thông điệp` | n, first, last, sample |
 | `group` | **mọi entry**, khớp regex `--group` | khoá do regex bắt | n, sum, max, levels |
-| `pages` | chỉ slow log WEB | trang (route / tên operation) | summaries, queries, ms, slow_queries, slow_ms, max_*, worst_duplicate |
+| `pages` | chỉ slow log WEB | trang (route / tên operation) | summaries, queries, ms, slow_queries, slow_ms, max_*, worst_duplicate; requests, slow_requests, big_responses, request_ms, request_db_ms, max_request_ms, max_bytes |
 | `sql_waste` | chỉ dòng nhóm của slow log tổng kết | SQL đã chuẩn hoá | waste = Σ(xN−1), count, ms, contexts, max_repeat, pages |
 | `commands` | chỉ slow log CLI | tên job / lệnh | runs, queries, ms, max_ms, slow_queries, slow_ms |
 | `slow_queries` | chỉ dòng query chậm | SQL đã chuẩn hoá | n, max_ms, first, last, pages |
@@ -206,6 +206,11 @@ Regex tồi (backtracking nặng) chỉ làm lượt quét chậm tới trần `
 lỗi lúc chạy của PCRE được coi như không khớp. Regex viết sai trả 422.
 
 ## Đọc số cho đúng
+
+- **Request chậm / response lớn** (khi app bật luật theo prefix, xem slow-log.md): bảng `pages`
+  có `slow_requests` / `big_responses` (số lượt), `max_request_ms`, `max_bytes`, và
+  `request_db_ms` / `request_ms` = phần DB trong tổng thời gian các request đó — DB chiếm ít thì
+  chậm vì việc khác (gọi API ngoài, render, CPU). Bảng `messages` có khoá `slow request: time+size`.
 
 - **Đếm `n`, đừng lấy trung bình** của query chậm. Chỉ query vượt `time_to_log` mới được ghi, nên đây là đuôi phân phối đã bị cắt: thời gian luôn quanh mép ngưỡng dù query thật nhanh hay chậm. `n` tăng vọt trong khi `max_ms` đứng yên là bão hoà do khối lượng (N+1, thiếu cache), không phải query plan tồi. Vì vậy bảng `slow_queries` cố ý không có avg.
 - **Σ(xN−1)** là số query thừa: query lặp 41 lần trong một request là 40 lượt thừa. Chỉ đếm được các query nằm trong `top_queries` dòng đầu của mỗi tổng kết, vì log không ghi phần còn lại.

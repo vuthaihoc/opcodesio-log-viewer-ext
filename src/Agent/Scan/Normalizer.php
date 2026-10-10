@@ -54,9 +54,11 @@ final class Normalizer
     public function message(Entry $entry, ?SlowLogRecord $record): string
     {
         if ($record !== null) {
-            return $record->kind === 'query'
-                ? 'slow query: '.$this->sql((string) $record->sql)
-                : 'slow summary: '.($record->reasons === [] ? '?' : implode('+', $record->reasons));
+            return match ($record->kind) {
+                'query' => 'slow query: '.$this->sql((string) $record->sql),
+                'request' => 'slow request: '.($record->reasons === [] ? '?' : implode('+', $record->reasons)),
+                default => 'slow summary: '.($record->reasons === [] ? '?' : implode('+', $record->reasons)),
+            };
         }
 
         $text = rtrim($entry->firstLine);

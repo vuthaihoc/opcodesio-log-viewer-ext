@@ -132,6 +132,9 @@ như bình thường; package chỉ điền những id chưa có.
 SLOW_LOG_ENABLED=true
 ```
 
+Tuỳ chọn log thêm **request xử lý quá lâu** và **response quá lớn** theo prefix path
+(`SLOW_LOG_REQUEST_TIME_PREFIXES`, `SLOW_LOG_RESPONSE_SIZE_PREFIXES`, mặc định tắt).
+
 Không cần đăng ký thêm provider. Mặc định ghi ra channel riêng `slow-log`
 (`storage/logs/slow-log-YYYY-MM-DD.log`). Truy vết về `⚡component` Livewire 4 và bản vá
 Debugbar mặc định tắt — app Livewire bật bằng `SLOW_LOG_TRACE_LIVEWIRE=true`,

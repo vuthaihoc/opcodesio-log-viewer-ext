@@ -179,6 +179,28 @@ return [
             'livewire' => env('SLOW_LOG_TRACE_LIVEWIRE', false),
         ],
 
+        /*
+        | Request web chậm / response lớn — RequestLogger. Hai luật độc lập, mỗi luật một danh
+        | sách prefix (chuỗi cách nhau dấu phẩy hoặc mảng) + một ngưỡng; danh sách rỗng = tắt.
+        | - `api` khớp `api` và `api/…` (theo đoạn path); có `*` thì so như Str::is (`livewire-*`,
+        |   `*` = mọi request);
+        | - `graphql:3000` = ngưỡng riêng cho prefix đó, `graphql/upload:0` = loại trừ; luật đầu
+        |   tiên khớp thắng nên đặt loại trừ trước luật rộng hơn.
+        | Thời gian tính từ lúc PHP nhận request tới khi có response (chưa gồm gửi đi); kích
+        | thước là body app trả ra, trước gzip của nginx.
+        */
+        'requests' => [
+            'time' => [
+                'prefixes' => env('SLOW_LOG_REQUEST_TIME_PREFIXES', ''),    // vd. "graphql,api,learn/*:3000"
+                'threshold' => (int) env('SLOW_LOG_REQUEST_TIME', 2000),   // ms
+            ],
+            'size' => [
+                'prefixes' => env('SLOW_LOG_RESPONSE_SIZE_PREFIXES', ''),  // vd. "graphql,api"
+                'threshold' => (int) env('SLOW_LOG_RESPONSE_SIZE', 524288), // byte (512 KB)
+            ],
+            'level' => env('SLOW_LOG_REQUEST_LEVEL', 'warning'),
+        ],
+
         // Vá tên nguồn query của Debugbar cho Livewire 4 (Debugbar in hash thô).
         // Mặc định tắt; bật thì chỉ chạy ở local khi Debugbar có mặt, độc lập với `enabled`.
         'debugbar_livewire' => env('SLOW_LOG_DEBUGBAR_LIVEWIRE', false),

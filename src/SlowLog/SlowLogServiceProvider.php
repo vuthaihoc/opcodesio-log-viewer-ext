@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Log query chậm + cảnh báo context có quá nhiều query (N+1). Xem docs/slow-log.md.
+ * Log query chậm + cảnh báo context có quá nhiều query (N+1) + request chậm / response lớn
+ * theo prefix (RequestLogger). Xem docs/slow-log.md.
  *
  * LogViewerRemoteServiceProvider tự register provider này, app không cần khai thêm.
  */
@@ -26,6 +27,7 @@ class SlowLogServiceProvider extends ServiceProvider
     {
         // Config `log-viewer-ext.slow_log` do LogViewerRemoteServiceProvider gộp trước khi register provider này.
         $this->app->singleton(SqlLogger::class, fn () => new SqlLogger);
+        $this->app->singleton(RequestLogger::class, fn () => new RequestLogger);
 
         $this->defineDedicatedChannel();
     }
@@ -79,6 +81,14 @@ class SlowLogServiceProvider extends ServiceProvider
         }
 
         Event::listen(QueryExecuted::class, $logger->record(...));
+
+        // Request chậm / response lớn: PHẢI đăng ký trước listener flush bên dưới — cần số
+        // query của request (SqlLogger::stats()) trước khi bị reset.
+        $requests = $this->app->make(RequestLogger::class);
+
+        if ($requests->isEnabled()) {
+            Event::listen(RequestHandled::class, static fn (RequestHandled $e) => $requests->handle($e->request, $e->response, $logger->stats()));
+        }
 
         // Mỗi context kết thúc phải flush, nếu không số liệu cộng dồn và rò bộ nhớ
         // trong các process chạy dài (queue:work, schedule:run).

@@ -111,6 +111,29 @@ class SlowLogParserTest extends TestCase
         $this->assertSame('select * from "jobs" where x = ARRAY[1,2]', $record->sql);
     }
 
+    public function test_request_entry_from_request_logger(): void
+    {
+        $record = $this->parse((new LogBuilder)->entry(
+            '2026-10-10 07:00:00',
+            'WARNING',
+            "[WEB][1.2.3.4][https://site.test/graphql] Request chậm 2531ms > 2000ms + Response lớn 812 KB > 512 KB\n  POST 200 · 2531ms · 812 KB · 63 query / 812ms DB",
+            [
+                'slow_log' => 'request', 'reasons' => ['time', 'size'], 'ms' => 2531, 'bytes' => 831488, 'status' => 200,
+                'method' => 'POST', 'queries' => 63, 'query_ms' => 812.4, 'req.url' => 'https://site.test/graphql', 'req.route' => '/graphql',
+            ],
+        ));
+
+        $this->assertSame('request', $record->kind);
+        $this->assertSame('WEB', $record->scope);
+        $this->assertSame(['time', 'size'], $record->reasons);
+        $this->assertSame(2531.0, $record->ms);
+        $this->assertSame(831488, $record->bytes);
+        $this->assertSame(200, $record->status);
+        $this->assertSame(63, $record->total);
+        $this->assertSame(812.4, $record->totalMs);
+        $this->assertSame('/graphql', $record->route);
+    }
+
     public function test_other_entries_are_not_slow_log(): void
     {
         $this->assertNull($this->parse((new LogBuilder)->entry('2026-10-03 15:45:30', 'ERROR', '[WEB] something else', ['a' => 1])));
