@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.4.0 — chưa phát hành
+## v1.4.0 — 2026-10-11
 
 - **Request chậm / response lớn theo prefix** (`SlowLog\RequestLogger`, nhóm `slow_log.requests`): hai luật độc lập — `SLOW_LOG_REQUEST_TIME_PREFIXES` + `SLOW_LOG_REQUEST_TIME` (mặc định 2000 ms), `SLOW_LOG_RESPONSE_SIZE_PREFIXES` + `SLOW_LOG_RESPONSE_SIZE` (mặc định 512 KB); prefix rỗng = tắt. Prefix theo đoạn path, `*` như Str::is, `prefix:ngưỡng` riêng, `prefix:0` loại trừ. Một dòng `slow_log: request` kèm số query + ms DB của chính request.
 - Bộ đọc của agent hiểu dòng `request`: bảng `pages` thêm `requests`, `slow_requests`, `big_responses`, `request_ms`, `request_db_ms`, `max_request_ms`, `max_bytes`; `messages` có khoá `slow request: …`.
