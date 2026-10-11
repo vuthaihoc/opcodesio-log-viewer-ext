@@ -324,5 +324,5 @@ Nhóm `slow_log` trong `config/log-viewer-ext.php` của package — mỗi key c
 
 ## Test
 
-Chưa có test trong package (cần orchestra/testbench). Test tích hợp nằm ở project dùng
-package: `tests/Feature/SqlLog/`, `tests/Unit/LoggableUrlTest.php`.
+Trong package: `tests/Feature/SlowLog/` (SqlLogger, RequestLogger, provider, resolver, test
+khớp định dạng ghi → đọc) và `tests/Feature/Support/LoggableUrlTest.php` — `composer test`.

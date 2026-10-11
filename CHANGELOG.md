@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.1 — 2026-10-11
+
+Không đổi code chạy — chỉ test:
+
+- Test phần cần Laravel chuyển từ app vào package, chạy trên orchestra/testbench (`tests/Feature`): endpoint agent, lệnh, vá lộ secret, tải file host xa, SqlLogger, RequestLogger, gộp config, LoggableUrl. `composer test` chạy cả Unit + Feature (~125 test, vài giây, không cần DB / mạng).
+- `require-dev` thêm `orchestra/testbench`, `livewire/livewire` (test resolver Livewire 4). `.gitattributes` loại tests khỏi bản cài.
+
 ## v1.4.0 — 2026-10-11
 
 - **Request chậm / response lớn theo prefix** (`SlowLog\RequestLogger`, nhóm `slow_log.requests`): hai luật độc lập — `SLOW_LOG_REQUEST_TIME_PREFIXES` + `SLOW_LOG_REQUEST_TIME` (mặc định 2000 ms), `SLOW_LOG_RESPONSE_SIZE_PREFIXES` + `SLOW_LOG_RESPONSE_SIZE` (mặc định 512 KB); prefix rỗng = tắt. Prefix theo đoạn path, `*` như Str::is, `prefix:ngưỡng` riêng, `prefix:0` loại trừ. Một dòng `slow_log: request` kèm số query + ms DB của chính request.

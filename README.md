@@ -211,9 +211,16 @@ muốn, publish `config/log-viewer.php` rồi thu hẹp `include_files`.
 
 ## Test
 
-Phần cần Laravel chưa có test trong package (cần orchestra/testbench). Test tích hợp nằm ở project
-dùng package: `tests/Feature/LogViewer/`, `tests/Feature/SqlLog/`, `tests/Unit/LoggableUrlTest.php`.
+```bash
+composer install && composer test     # ~125 test, vài giây, không cần DB / mạng
+```
 
-Phần PHP thuần (bộ đọc log của agent, `src/Agent/Scan`, `src/Agent/ChannelFiles.php`) có unit
-test ngay trong package: `composer install && composer test`, hoặc từ app đang dùng package:
-`vendor/bin/phpunit -c <đường dẫn package>/phpunit.xml`.
+- `tests/Unit` — phần PHP thuần (bộ đọc log của agent, `ChannelFiles`). Chạy được cả bằng
+  phpunit của app đang dùng package: `vendor/bin/phpunit -c <package>/phpunit.xml --testsuite Unit`.
+- `tests/Feature` — phần cần Laravel trên orchestra/testbench: endpoint agent (token, channel,
+  cursor, forward, link UI, loại log), lệnh, vá lộ secret, tải file host xa, SqlLogger,
+  RequestLogger, gộp config. File log ở thư mục tạm, host xa là `Http::fake`, người xem là user
+  không lưu DB.
+
+Project dùng package chỉ cần test những gì nó tự quyết (Gate `viewLogViewer`, giá trị trong
+`config/log-viewer-ext.php`) — không chép lại test của package.
