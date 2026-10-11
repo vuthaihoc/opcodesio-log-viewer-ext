@@ -1,6 +1,6 @@
 # Changelog
 
-## Chưa phát hành
+## v1.4.3 — 2026-10-11
 
 - Tài liệu: mục "Khuyến nghị về token" trong `docs/agent.md` (mỗi project một token, máy chạy agent không giữ shared secret, ai sinh / phát token, xoay vòng); `secret --agent --show` trong hướng dẫn cài; skill dặn agent không tự sinh hay in token.
 
