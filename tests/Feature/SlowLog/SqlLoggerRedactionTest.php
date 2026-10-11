@@ -120,6 +120,19 @@ class SqlLoggerRedactionTest extends TestCase
         $this->assertStringNotContainsString('->', $output);
     }
 
+    public function test_passport_tables_never_log_values_but_similar_names_do(): void
+    {
+        $this->app['env'] = 'local';
+
+        $output = $this->logQuery('select * from `oauth_access_tokens` where `id` = ?', ['short-id']);
+        $this->assertStringNotContainsString('short-id', $output);
+
+        // `job_applies` là bảng nghiệp vụ, không được khớp nhầm với `jobs`.
+        $this->sink->lines = [];
+        $output = $this->logQuery('select * from `job_applies` where `email` = ?', ['a@b.c']);
+        $this->assertStringContainsString("-> select * from `job_applies` where `email` = 'a@b.c'", $output);
+    }
+
     public function test_binary_binding_does_not_break_the_query_listener(): void
     {
         $this->app['env'] = 'local';

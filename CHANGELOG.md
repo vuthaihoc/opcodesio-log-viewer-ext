@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.2 — 2026-10-11
+
+Gộp phần còn hơn của bản slow log rút gọn trong gth (`app/Core/SqlLog`) trước khi gth chuyển sang package:
+
+- Bảng của Laravel Passport (`oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes`, `oauth_clients`) vào danh sách bảng nhạy cảm — không bao giờ in giá trị binding (`raw_bindings`, chỉ local).
+- `itsgoingd/clockwork` vào `trace.skip_vendors` mặc định (Clockwork cũng nghe QueryExecuted, frame của nó chỉ là nhiễu).
+- Test nhãn ngữ cảnh `[CLI][tên job / lệnh]` nối dây thật qua event của queue worker / artisan (kể cả lần thử lỗi còn retry, job trong `queue:work`).
+
 ## v1.4.1 — 2026-10-11
 
 Không đổi code chạy — chỉ test:

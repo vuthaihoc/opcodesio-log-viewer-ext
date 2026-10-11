@@ -77,7 +77,8 @@ Debugbar cũng vô hại: tầng Livewire thấy `livewire.component_locations` 
 no-op, bản vá Debugbar không thấy binding `debugbar` nên không gắn listener.
 
 Gói vendor bị lọc khỏi trace khai ở `trace.skip_vendors` (mặc định `laravel/framework`,
-`livewire/livewire`, `barryvdh/laravel-debugbar`). Frame trong chính package luôn bị lọc.
+`livewire/livewire`, `barryvdh/laravel-debugbar`, `itsgoingd/clockwork`). Frame trong chính
+package luôn bị lọc.
 
 ### 4. (Tuỳ chọn) Request chậm / response lớn theo prefix
 
@@ -218,7 +219,7 @@ Kể cả ở local, giá trị vẫn được che bằng ba lớp:
 
 | Lớp | Quy tắc | Ví dụ |
 |---|---|---|
-| Bảng nhạy cảm | Query đụng `jobs`, `failed_jobs`, `job_batches`, `sessions`, `cache`, `cache_locks`, `personal_access_tokens`, `password_reset_tokens`, `password_resets` → không in dòng `-> ` | payload job chứa model đã serialize |
+| Bảng nhạy cảm | Query đụng `jobs`, `failed_jobs`, `job_batches`, `sessions`, `cache`, `cache_locks`, `personal_access_tokens`, `password_reset_tokens`, `password_resets`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes`, `oauth_clients` → không in dòng `-> ` | payload job chứa model đã serialize, token Sanctum / Passport |
 | Hình dạng giá trị | Hash bcrypt/argon → `'[hash]'`; dài hơn 64 ký tự → `'[812 chars]'`; chuỗi toàn chữ + số, có cả hai, từ 24 ký tự → `'[token 60 chars]'`; binary/null byte → `'[binary 9 bytes]'` | `password`, `remember_token`, token OAuth/FCM |
 | Giữ nguyên | Số, ngày, bool, chuỗi ngắn (email, slug, id YouTube) | để còn tái hiện được N+1 |
 

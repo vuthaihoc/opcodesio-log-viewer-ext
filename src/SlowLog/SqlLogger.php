@@ -28,8 +28,8 @@ class SqlLogger
     /** Binding dài hơn mức này (payload, nội dung, token OAuth/FCM) bị thay bằng độ dài. */
     protected const MAX_BINDING_LENGTH = 64;
 
-    /** Bảng mà giá trị nào cũng nhạy cảm: payload job, session, cache, token — không bao giờ ghi giá trị. */
-    protected const SENSITIVE_TABLES_PATTERN = '/\b(?:from|into|update|join)\s+[`"]?(?:jobs|failed_jobs|job_batches|sessions|cache|cache_locks|personal_access_tokens|password_reset_tokens|password_resets)\b/i';
+    /** Bảng mà giá trị nào cũng nhạy cảm: payload job, session, cache, token (Sanctum, Passport) — không bao giờ ghi giá trị. */
+    protected const SENSITIVE_TABLES_PATTERN = '/\b(?:from|into|update|join)\s+[`"]?(?:jobs|failed_jobs|job_batches|sessions|cache|cache_locks|personal_access_tokens|password_reset_tokens|password_resets|oauth_access_tokens|oauth_refresh_tokens|oauth_auth_codes|oauth_clients)\b/i';
 
     /** @var array<string, array{sql: string, count: int, ms: float, connection: string}> */
     protected array $groups = [];
@@ -109,7 +109,7 @@ class SqlLogger
 
         $this->trace = (bool) ($trace['enabled'] ?? true);
         $this->traceFrames = max(1, (int) ($trace['max_frames'] ?? 8));
-        $this->skipVendors = array_values((array) ($trace['skip_vendors'] ?? ['laravel/framework', 'livewire/livewire', 'barryvdh/laravel-debugbar']));
+        $this->skipVendors = array_values((array) ($trace['skip_vendors'] ?? ['laravel/framework', 'livewire/livewire', 'barryvdh/laravel-debugbar', 'itsgoingd/clockwork']));
 
         $this->resolver = new CompiledViewResolver(
             blade: (bool) ($trace['blade'] ?? true),

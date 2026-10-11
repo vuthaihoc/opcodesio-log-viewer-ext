@@ -164,11 +164,13 @@ return [
 
             'max_frames' => 8,
 
-            // Gói vendor bỏ khỏi trace — frame của chúng chỉ là nhiễu.
+            // Gói vendor bỏ khỏi trace — frame của chúng chỉ là nhiễu (Debugbar / Clockwork cũng
+            // nghe QueryExecuted).
             'skip_vendors' => [
                 'laravel/framework',
                 'livewire/livewire',
                 'barryvdh/laravel-debugbar',
+                'itsgoingd/clockwork',
             ],
 
             // storage/framework/views/<hash>.php → file .blade.php nguồn (marker PATH cuối file).
