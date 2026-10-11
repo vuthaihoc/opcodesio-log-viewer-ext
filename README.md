@@ -145,8 +145,8 @@ Tài liệu đầy đủ (tích hợp, ngưỡng, cách che dữ liệu, đọc 
 ## Agent phân tích log từ xa
 
 ```bash
-php artisan log-viewer-remote:secret --agent     # một lần, copy LOG_VIEWER_AGENT_TOKEN sang mọi host
-php artisan log-viewer-remote:check              # cột Agent: phiên bản + channel cho phép của từng host
+php artisan log-viewer-remote:secret --agent --show  # một lần / project, dán LOG_VIEWER_AGENT_TOKEN vào .env mọi host
+php artisan log-viewer-remote:check                   # cột Agent: phiên bản + channel cho phép của từng host
 php artisan log-viewer-remote:aggregate --host=m1 --channel=slow-log --date=2026-10-05
 php artisan log-viewer-remote:entries --host=m1 --at=slow-log-2026-10-05.log@1124892
 ```
@@ -155,7 +155,9 @@ Host bị đọc khai channel agent token được đọc (`LOG_VIEWER_AGENT_CHA
 mặc định `slow-log`; shared secret không bị giới hạn). Agent token chỉ gọi được `api/agent/*` —
 không tải / xoá file, không vào UI. `levels` / `messages` đọc mọi log, 4 bảng còn lại chỉ đọc
 slow log; câu hỏi riêng thì tự gửi `--match` / `--group` (regex). Đi vòng qua host đang xem:
-`--via=web --host=m1`. Skill cho Claude Code: `php artisan vendor:publish --tag=log-viewer-remote-skill`.
+`--via=web --host=m1`. Mỗi project một token, máy chạy agent không giữ shared secret của
+production — đủ khuyến nghị ở [docs/agent.md](docs/agent.md#khuyến-nghị-về-token). Skill cho
+Claude Code: `php artisan vendor:publish --tag=log-viewer-remote-skill`.
 
 Tài liệu đầy đủ (bảy thao tác hay làm, cách đọc số, HTTP API, cấu hình): [docs/agent.md](docs/agent.md).
 

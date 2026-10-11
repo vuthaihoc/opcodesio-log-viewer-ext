@@ -1,5 +1,9 @@
 # Changelog
 
+## Chưa phát hành
+
+- Tài liệu: mục "Khuyến nghị về token" trong `docs/agent.md` (mỗi project một token, máy chạy agent không giữ shared secret, ai sinh / phát token, xoay vòng); `secret --agent --show` trong hướng dẫn cài; skill dặn agent không tự sinh hay in token.
+
 ## v1.4.2 — 2026-10-11
 
 Gộp phần còn hơn của bản slow log rút gọn trong gth (`app/Core/SqlLog`) trước khi gth chuyển sang package:

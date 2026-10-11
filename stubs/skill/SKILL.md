@@ -23,6 +23,9 @@ php artisan log-viewer-remote:files --host=<host>       # file + channel + ngày
 - Không gọi thẳng được host đích thì `--via=<host đang xem> --host=<đích>` (host trung gian forward).
 - Cột Agent `chưa có (host < 1.2)` = host chưa nâng cấp package → không dùng được, báo người dùng.
 - Lệnh cảnh báo đang gửi shared secret = máy này thiếu `LOG_VIEWER_AGENT_TOKEN`; vẫn chạy được.
+- Không tự sinh token (`log-viewer-remote:secret`), không ghi `.env` của host, không in config
+  `log-viewer-ext` (lộ token). Thiếu token / host trả 403 → báo người dùng làm theo
+  `docs/agent.md` → "Khuyến nghị về token" của package.
 
 ## Gom số liệu
 

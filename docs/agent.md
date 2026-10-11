@@ -19,11 +19,15 @@ php artisan log-viewer-remote:aggregate   GET {log-viewer}/api/agent/aggregate
 
 **Trên mọi host** (cả host bị đọc lẫn máy dev), dùng `hocvt/log-viewer-remote` ≥ 1.2:
 
-1. Sinh token **một lần** rồi copy cùng giá trị sang `.env` của mọi host:
+1. Sinh token **một lần** rồi copy cùng giá trị sang `.env` của mọi host (xem
+   [Khuyến nghị về token](#khuyến-nghị-về-token)):
 
    ```bash
-   php artisan log-viewer-remote:secret --agent
+   php artisan log-viewer-remote:secret --agent --show
    ```
+
+   `--show` chỉ in ra, không ghi `.env`. Bỏ `--show` thì lệnh ghi thẳng vào `.env` của máy
+   đang chạy; lệnh không ghi đè giá trị có sẵn nếu thiếu `--force`.
 
 2. Trên host bị đọc, khai các channel mà **agent token** được đọc. Mặc định chỉ có `slow-log`
    (channel riêng của slow log):
@@ -52,6 +56,33 @@ Cột **Agent** của lệnh check có thể hiện các giá trị sau:
 | `v1.2.0 · agent · slow-log,daily` | Host đã nâng cấp và nhận agent token. Kèm danh sách channel cho phép |
 | `chưa có (host < 1.2)` | Host trả HTML: chưa nâng cấp package, hoặc sai `route_path` |
 | `403 — …` | Host chưa khai `LOG_VIEWER_AGENT_TOKEN`, hoặc hai bên lệch nhau |
+
+### Khuyến nghị về token
+
+- **Mỗi project một token**. Mọi host của cùng một project dùng chung một giá trị, nhưng
+  project khác phải có token khác. Lộ token của project này thì không mở được log của project
+  kia.
+- **Token khác shared secret.** Nếu hai giá trị trùng nhau, request được nhận là agent token,
+  nên shared secret cũng bị giới hạn theo channel.
+- **Máy chạy agent chỉ giữ agent token, không giữ `LOG_VIEWER_SHARED_SECRET` của production.**
+  Agent đọc được `.env`; shared secret thì đọc được mọi file, tải và xoá file qua API của
+  vendor. Cần đi vòng qua host web thì dùng `--via=web`: host trung gian forward bằng chính
+  agent token, host đích vẫn tự áp giới hạn channel. Còn xem UI nhiều host thì xem trên host
+  web, vì shared secret nằm sẵn ở đó.
+- **Người sinh và phát token, không để agent tự làm.** Sinh bằng `--show` ở một máy, rồi dán
+  vào `.env` từng host qua kênh dùng để phát secret khác (vault, trình quản lý mật khẩu,
+  Ansible…). Không commit, không dán vào chat hay ticket, và không in token ra trong phiên
+  agent (`config:show log-viewer-ext` in ra cả token).
+- **Mở channel ít nhất có thể** (`agent.channels`): slow log, cộng log lỗi mặc định nếu
+  agent cần đọc lỗi. Không mở channel ghi nội dung request AI, payload webhook hay biến
+  GraphQL.
+- **Host không cần cho agent đọc thì để trống** `LOG_VIEWER_AGENT_TOKEN`. Khi đó
+  `api/agent/*` chỉ nhận shared secret.
+- **Sau khi sửa `.env`**, host có cache config thì phải chạy `php artisan config:cache`. Kiểm
+  tra lại bằng `log-viewer-remote:check` từ máy chạy agent.
+- **Xoay vòng** khi token có thể đã lộ, hoặc khi người giữ nó rời nhóm. Chỉ có một giá trị
+  hợp lệ, nên đổi trên mọi host của project trong cùng một đợt; host chưa đổi trả `403` cho
+  tới khi được đổi.
 
 ## Bảo mật
 
