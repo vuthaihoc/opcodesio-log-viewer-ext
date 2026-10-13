@@ -1,6 +1,6 @@
 # Changelog
 
-## Chưa phát hành
+## v1.4.4 — 2026-10-13
 
 - PHP 8.5: bỏ `ReflectionProperty::setAccessible()` trong `DebugbarLivewireSource` (deprecate từ 8.5, vô tác dụng từ 8.1). Mỗi query ở local có Debugbar từng sinh một dòng deprecation. Có thêm test cho bản vá Debugbar (trước đây chưa có test nào chạy qua đoạn này).
 - Test: deprecation phát ra từ `src/` làm test đỏ. `phpunit.xml` có `failOnDeprecation`; Feature test có lớp chặn riêng ở `TestCase`, vì Laravel đưa deprecation vào kênh log nên PHPUnit không thấy.
