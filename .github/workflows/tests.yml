@@ -39,11 +39,16 @@ jobs:
       # composer.lock không commit (thư viện): mỗi job tự giải bản mới nhất khớp Laravel của job.
       - name: Install dependencies
         run: |
+          if [ "${{ matrix.laravel }}" = "11.*" ]; then
+            # Mọi bản laravel/framework 11.x dính security advisory (Laravel 11 hết hạn hỗ trợ) nên
+            # Composer ≥ 2.9 từ chối cài. Vẫn test vì còn app chạy Laravel 11.
+            composer config audit.block-insecure false
+          fi
           composer require "illuminate/support:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --dev --no-update --no-interaction
           composer update --prefer-dist --prefer-stable --no-interaction --no-progress
 
       - name: Versions
-        run: composer show laravel/framework orchestra/testbench phpunit/phpunit livewire/livewire opcodesio/log-viewer | grep -E '^(name|versions)'
+        run: composer show | grep -E '^(laravel/framework|orchestra/testbench|phpunit/phpunit|livewire/livewire|opcodesio/log-viewer) '
 
       # phpunit.xml failOnDeprecation + tests/Feature/TestCase chặn deprecation phát ra từ src/
       # (Laravel nuốt deprecation vào kênh log nên PHPUnit không thấy).
