@@ -1,5 +1,7 @@
 # hocvt/log-viewer-remote
 
+[![tests](https://github.com/vuthaihoc/opcodesio-log-viewer-ext/actions/workflows/tests.yml/badge.svg)](https://github.com/vuthaihoc/opcodesio-log-viewer-ext/actions/workflows/tests.yml)
+
 Mở rộng [opcodesio/log-viewer](https://github.com/opcodesio/log-viewer) cho mô hình
 "một Log Viewer xem log của nhiều host":
 
@@ -214,8 +216,13 @@ muốn, publish `config/log-viewer.php` rồi thu hẹp `include_files`.
 ## Test
 
 ```bash
-composer install && composer test     # ~125 test, vài giây, không cần DB / mạng
+composer install && composer test     # ~134 test, vài giây, không cần DB / mạng
 ```
+
+CI (`.github/workflows/tests.yml`) chạy bộ test trên PHP 8.3 và 8.5, với Laravel 11 / 12 / 13.
+Riêng cặp Laravel 11 × PHP 8.5 bị loại, vì Laravel 11 chỉ hỗ trợ tới PHP 8.4. Code của package
+gây deprecation (gọi hàm PHP hoặc API vendor đã deprecate) thì test đỏ. Laravel nuốt
+deprecation vào kênh log, nên `tests/Feature/TestCase` có lớp chặn riêng cho file trong `src/`.
 
 - `tests/Unit` — phần PHP thuần (bộ đọc log của agent, `ChannelFiles`). Chạy được cả bằng
   phpunit của app đang dùng package: `vendor/bin/phpunit -c <package>/phpunit.xml --testsuite Unit`.

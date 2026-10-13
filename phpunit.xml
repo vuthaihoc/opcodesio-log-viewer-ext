@@ -6,7 +6,7 @@
     - Feature: phần cần Laravel (HTTP, lệnh, logger, config) trên orchestra/testbench — cần
       vendor của chính package.
 -->
-<phpunit bootstrap="tests/bootstrap.php" colors="true" cacheDirectory=".phpunit.cache" failOnWarning="true" failOnRisky="true">
+<phpunit bootstrap="tests/bootstrap.php" colors="true" cacheDirectory=".phpunit.cache" failOnWarning="true" failOnRisky="true" failOnDeprecation="true">
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
@@ -15,7 +15,14 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
-    <source>
+    <!--
+        failOnDeprecation: deprecation do code của package gây ra (gọi thẳng, hoặc gọi API
+        vendor đã deprecate) làm đỏ. ignoreIndirectDeprecations: bỏ qua deprecation phát sinh
+        hẳn bên trong vendor (vd. config mẫu của testbench 9 dùng PDO::MYSQL_ATTR_SSL_CA trên
+        PHP 8.5) — không phải việc của package. Feature test còn lớp chặn riêng ở TestCase vì
+        Laravel nuốt deprecation vào kênh log.
+    -->
+    <source ignoreIndirectDeprecations="true">
         <include>
             <directory>src</directory>
         </include>

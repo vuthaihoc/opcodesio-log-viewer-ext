@@ -55,10 +55,10 @@ class DebugbarLivewireSource
 
             $collector = $debugbar->getCollector('queries');
 
-            $prop = new \ReflectionProperty($collector, 'queries');
-            $prop->setAccessible(true);
+            // Reflection đọc được property không public từ PHP 8.1; setAccessible() là no-op và bị
+            // deprecate ở 8.5.
             /** @var array<int, array<string, mixed>> $queries */
-            $queries = $prop->getValue($collector);
+            $queries = (new \ReflectionProperty($collector, 'queries'))->getValue($collector);
 
             $total = count($queries);
 

@@ -1,0 +1,51 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.5']
+        laravel: ['11.*', '12.*', '13.*']
+        # Laravel 11 chỉ hỗ trợ PHP 8.2–8.4 (và đã hết hạn hỗ trợ).
+        exclude:
+          - php: '8.5'
+            laravel: '11.*'
+        include:
+          - laravel: '11.*'
+            testbench: '9.*'
+          - laravel: '12.*'
+            testbench: '10.*'
+          - laravel: '13.*'
+            testbench: '11.*'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      # composer.lock không commit (thư viện): mỗi job tự giải bản mới nhất khớp Laravel của job.
+      - name: Install dependencies
+        run: |
+          composer require "illuminate/support:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --dev --no-update --no-interaction
+          composer update --prefer-dist --prefer-stable --no-interaction --no-progress
+
+      - name: Versions
+        run: composer show laravel/framework orchestra/testbench phpunit/phpunit livewire/livewire opcodesio/log-viewer | grep -E '^(name|versions)'
+
+      # phpunit.xml failOnDeprecation + tests/Feature/TestCase chặn deprecation phát ra từ src/
+      # (Laravel nuốt deprecation vào kênh log nên PHPUnit không thấy).
+      - name: Tests
+        run: composer test

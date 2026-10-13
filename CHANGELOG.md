@@ -1,5 +1,11 @@
 # Changelog
 
+## Chưa phát hành
+
+- PHP 8.5: bỏ `ReflectionProperty::setAccessible()` trong `DebugbarLivewireSource` (deprecate từ 8.5, vô tác dụng từ 8.1). Mỗi query ở local có Debugbar từng sinh một dòng deprecation. Có thêm test cho bản vá Debugbar (trước đây chưa có test nào chạy qua đoạn này).
+- Test: deprecation phát ra từ `src/` làm test đỏ. `phpunit.xml` có `failOnDeprecation`; Feature test có lớp chặn riêng ở `TestCase`, vì Laravel đưa deprecation vào kênh log nên PHPUnit không thấy.
+- CI GitHub Actions: PHP 8.3 / 8.5 × Laravel 11 / 12 / 13, trừ cặp Laravel 11 × 8.5.
+
 ## v1.4.3 — 2026-10-11
 
 - Tài liệu: mục "Khuyến nghị về token" trong `docs/agent.md` (mỗi project một token, máy chạy agent không giữ shared secret, ai sinh / phát token, xoay vòng); `secret --agent --show` trong hướng dẫn cài; skill dặn agent không tự sinh hay in token.
