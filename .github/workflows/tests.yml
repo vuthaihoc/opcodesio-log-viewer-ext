@@ -36,6 +36,12 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
 
+      # Packagist bỏ qua nhánh có composer.json không hợp lệ (đã gặp: keyword "n+1"), kể cả lỗi
+      # mà `composer validate` thường chỉ coi là cảnh báo — nên dùng --strict. Chạy TRƯỚC bước
+      # install vì bước đó sửa composer.json.
+      - name: Validate composer.json
+        run: composer validate --strict --no-check-lock
+
       # composer.lock không commit (thư viện): mỗi job tự giải bản mới nhất khớp Laravel của job.
       - name: Install dependencies
         run: |

@@ -1,5 +1,9 @@
 # Changelog
 
+## Chưa phát hành
+
+- `composer.json`: keyword `n+1` → `n-plus-one`. Dấu `+` không hợp lệ theo schema, nên Packagist bỏ qua nhánh `main` (mất `dev-main`) và gửi mail "failed to update". CI có thêm bước `composer validate --strict`.
+
 ## v1.4.4 — 2026-10-13
 
 - PHP 8.5: bỏ `ReflectionProperty::setAccessible()` trong `DebugbarLivewireSource` (deprecate từ 8.5, vô tác dụng từ 8.1). Mỗi query ở local có Debugbar từng sinh một dòng deprecation. Có thêm test cho bản vá Debugbar (trước đây chưa có test nào chạy qua đoạn này).

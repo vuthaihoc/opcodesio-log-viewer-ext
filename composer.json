@@ -41,7 +41,7 @@
         "logs",
         "multi-host",
         "slow-query",
-        "n+1"
+        "n-plus-one"
     ],
     "authors": [
         {
