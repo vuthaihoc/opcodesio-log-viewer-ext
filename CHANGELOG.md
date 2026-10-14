@@ -1,6 +1,6 @@
 # Changelog
 
-## Chưa phát hành
+## v1.4.5 — 2026-10-14
 
 - `composer.json`: keyword `n+1` → `n-plus-one`. Dấu `+` không hợp lệ theo schema, nên Packagist bỏ qua nhánh `main` (mất `dev-main`) và gửi mail "failed to update". CI có thêm bước `composer validate --strict`.
 
